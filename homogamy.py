@@ -3,8 +3,11 @@
 
 '''
 
-    Improve plot: outside ticks, axes slightly offset, no square box,
-    charcoal pen color
+    TO DO LIST:
+    
+    1.  Improve plot: outside ticks, axes slightly offset, no square box,
+        charcoal pen color
+        
     1.  Change plotting (and data collection?) to AA_freq not AA_size
         (Need to go through simuPOP examples to make this work)
         
@@ -35,9 +38,9 @@
     
     We follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
     
-    Because this code is intended to be archived, we didn't follow the 
+    Because this code is intended to be archived, this doesn't follow the 
     don't-repeat-yourself (DRY) philosophy of object-oriented programming.
-    All of our code is contained in this one script, which is not intended to
+    All of our code is contained in this one script, and is not intended to
     be modular.
 '''
 
@@ -54,7 +57,7 @@ import csv
 import multiprocessing
 import numpy 
 import matplotlib
-# The matplotlib.use command, which specifies the backend, must appear
+# The matplotlib.use command, which specifies the backend, *must* appear
 # before importing pyplot. For choices of backends, see:
 # http://matplotlib.org/faq/usage_faq.html#what-is-a-backend
 matplotlib.use('Agg') 
@@ -64,7 +67,6 @@ if not DEBUG_MODE:
     simuOpt.setOptions(optimized=True, numThreads=0)
 from simuPOP import *
 print
-
 
 PROPOSALS = 1000
 #A_FREQ = 0.01304
@@ -94,16 +96,17 @@ CHART_COLORS = [GALLAUDET_BLUE,GALLAUDET_BUFF,'LightSkyBlue',
 PEN_COLOR = 'black'
 
 
-
 def varyAssort(constant_pop_size, aa_fitness, aa_homogamy):
     '''
+        This is the actual simulation routine.
+        It calls simuPOP and passes on the appropriate parameters.
+        
         Accepts:
         constant_pop_size   population size, which remains constant throughout
         aa_fitness          _relative_ fitness of deaf individuals
         aa_homogamy         the percent of assortative mating between
                             deaf individuals
-
-        Returns a dict containing the results from the simulation.
+        Returns: a dict containing the results from the simulation.
     '''        
     setRNG(random.seed(getRNG().seed()))
     pop = Population(constant_pop_size, loci=1, infoFields='fitness')
@@ -206,25 +209,29 @@ def contour_plot(ax, X, Y, xlabel='', ylabel='', title='', scaling=1.0):
 def write_summary_contour_plot(filename, Xarr, Yarr, cols, titles=[], title='',
                   xlabel='', ylabel=''):
     '''
-        Writes a scatter plot to filename.
+        Writes a 2D array of scatter plots to filename.
+        from http://matplotlib.org/examples/pylab_examples/subplots_demo.html
+        
         The median is shown as a line and the area between the 5% and 95% CI 
         are shaded.
         Accepts:
             filename    the filename (including path and extension) for the
                         new plot to be created
             Xarr        an array of arrays of x values
-            Yarr        an array of arrays consisting of a tuple of three 
-                        Y values:
+            Yarr        an array of arrays of a tuple of three Y values:
                             (5%, median, 95%)
             titles      an array of plot titles
             title       main plot title
             xlabel      x axis label string
             ylabel      y axis label string
     '''
+    rows = 1            # we might add the ability for more rows later
+    scaling = 0.5       # controls the size of text, which needs to be made
+                        # smaller as more subplots are added
     
     # The link below gives examples of setting up multiple charts on shared 
     # axes:
-    # http://matplotlib.org/examples/pylab_examples/subplots_demo.html
+    # 
     # http://matplotlib.org/mpl_examples/pylab_examples/subplots_demo.py
     
     def adjustFigAspect(fig,aspect=1):
@@ -245,11 +252,11 @@ def write_summary_contour_plot(filename, Xarr, Yarr, cols, titles=[], title='',
                             bottom=.5-ylim,
                             top=.5+ylim)
     
-    scaling = 0.5
+    
     plt.clf()
     plt.title(title, y=1.10, fontsize=20*scaling)
     fig = plt.figure(figsize=ASPECT_RATIO)
-    fig, axarr = plt.subplots(1, cols, sharex=True, sharey=True)
+    fig, axarr = plt.subplots(rows, cols, sharex=True, sharey=True)
     for ax, X, Y, title in zip(axarr, Xarr, Yarr, titles):
         ax = contour_plot(ax, X, Y,
                           xlabel=xlabel,
@@ -293,7 +300,7 @@ if __name__ == '__main__':
                         help = 'results folder path. If it does not exist, '\
                                'it will be created.',
                         nargs = '?',  # makes this argument optional
-                        default = '/'.join(__file__.split('/')[:-1]))
+                        default = os.path.dirname(__file__))
     parser.add_argument('-o','--overwrite',action='store_true',
                         help = 'overwrite old csv files.')
     parser.add_argument('-g','--graph_only',action='store_true',
@@ -305,16 +312,14 @@ if __name__ == '__main__':
         
     # Clean up the path name. Create a new directory if it does not yet exist.
     # Copy the source code into the directory, if it is not already there.
-    if args.path[-1] <> '/':
-        args.path += '/'
     if not os.path.isdir(args.path):
         os.makedirs(args.path)
-        print "Created folder '{f}'.".format(f=args.path)
+        print "Created folder '{}'.".format(args.path)
     else:
-        print "Using folder '{f}'.".format(f=args.path)
-    source_fn = __file__.split('/')[-1].replace('.pyc','.py')
-    shutil.copyfile(source_fn,args.path + source_fn)
-    print "Copied source code to '{f}'.".format(fn=source_fn,f=args.path)
+        print "Using folder '{}'.".format(args.path)
+    source_fn = os.path.split(__file__)[-1].replace('.pyc','.py')
+    shutil.copyfile(source_fn, os.path.join(args.path,source_fn))
+    print "Copied source code to '{}'.".format(args.path)
 
     if not args.graph_only:
         for experiment in EXPERIMENTS:
@@ -333,11 +338,12 @@ if __name__ == '__main__':
                         ['# mutation allele start freq = {A_FREQ}'\
                          ''.format(A_FREQ=A_FREQ)],
                         sample_run['header']]
-            fn = '{path}pop{constant_pop_size}_fitness{aa_fitness}'\
-                 '_homogamy{aa_homogamy:.2}.tsv'\
-                 ''.format(path=args.path,**experiment)                        
+            fn = os.path.join(args.path, 
+                              'pop{constant_pop_size}_fitness{aa_fitness}'\
+                              '_homogamy{aa_homogamy:.2}.tsv'\
+                              ''.format(**experiment))
             if os.path.isfile(fn) and not args.overwrite:
-                print "File '{fn}' exists.".format(fn=fn)
+                print "File '{}' exists.".format(fn)
                 print "  Use --overwrite to re-do the experiment."
                 continue
             else:
@@ -345,15 +351,12 @@ if __name__ == '__main__':
                 o = csv.writer(f, dialect=csv.excel_tab)
                 o.writerows(headers)
                 f.close()
-                print "Created '{fn}'.".format(fn=fn)
+                print "Created '{}'.".format(fn)
                  
             def worker():
                 '''
-                    The apply_async method requires that parameters for the
-                    function it will execute in parallel be passed to
-                    apply_async as a tuple. I thought it more pythonic to
-                    create a worker function rather than converting my
-                    parameter dict into a tuple.
+                    The worker function exists as a convenient way of passing
+                    varyAssort with its parameters to the multiprocessing pool.
                 '''
                 return varyAssort(**experiment)
                 
@@ -375,29 +378,23 @@ if __name__ == '__main__':
                       ''.format(proposals=proposals,
                                 rate=rate,
                                 cpu_count=cpu_count)
-                # Here, I dynamically adjust mp_chunk_size based on actual
-                # execution speed such that file writes occur approximately 
-                # once per minute. This increases overall speed, decreases
-                # hard drive writes, and gives the user just enough output
-                # to know that this script is running.
+                # mp_chunk_size is dynamically adjusted based on actual
+                # execution speed such that file writes occur once per minute.
                 mp_chunk_size = int(rate - rate%cpu_count)
                 if proposals + mp_chunk_size > PROPOSALS:
                     mp_chunk_size = PROPOSALS-proposals
 
-    # This graphing routine re-opens all the saved csv files in the directory
-    # that were generated by simulation runs, and parses each one to retrieve
-    # data. I do this instead of re-running simulations and retaining data
-    # in memory, because often I will need to modify and re-run graphing 
-    # routines to adjust output, and I do not want to re-run time-consuming 
-    # simulations each time.
-    print "Looking for .tsv files in '{f}'.".format(f=args.path)
+    # This graphing routine retrieves data from all the saved tsv files in
+    # the directory (which would have been generated by simulation runs).
+    # This allows tweaking of graphing routines without re-running simulations. 
+    print "Looking for .tsv files in '{}'.".format(args.path)
     files = [f for f in os.listdir(args.path) \
-                if os.path.isfile(args.path + f) and '.tsv' in f]
+                if os.path.isfile(os.path.join(args.path, f)) and '.tsv' in f]
     a_freqs_arr = []
     params_arr= []
     titles = []
     for file in files:
-        f = open(args.path + file,'r')
+        f = open(os.path.join(args.path, file),'r')
         rows = csv.reader(f, dialect=csv.excel_tab)
         params = {}
         headers = []
@@ -413,7 +410,7 @@ if __name__ == '__main__':
                 continue
             else:
                 data += [row]
-        # This clever Python shorthand transposes a table. It can cause data
+        # This clever Python shorthand transposes a table. It will cause data
         # truncation if the table does not have consistent dimensions.
         data = zip(*data)
         
@@ -443,7 +440,7 @@ if __name__ == '__main__':
         titles.append(title)
         
         # Create individual contour charts
-        filename = args.path + file.replace('.tsv','.pdf')
+        filename = os.path.join(args.path,file.replace('.tsv','.pdf'))
         print "Saving chart to '{filename}'.".format(filename=filename)
         write_contour_plot(filename, X, a_freqs,
                            title=title,
