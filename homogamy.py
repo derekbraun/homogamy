@@ -2,46 +2,18 @@
 # -*- coding: utf-8 -*-
 
 '''
-
-    TO DO LIST:
-    
-    1.  Improve plot: outside ticks, axes slightly offset, no square box,
-        charcoal pen color
-        
-    1.  Change plotting (and data collection?) to AA_freq not AA_size
-        (Need to go through simuPOP examples to make this work)
-        
-    2.  Also record (hopefully) the inbreeding coefficient, F, after each
-        generation. We might need to make the simupop object into an iterable
-        to accomplish this.
-    
-    4.  Generate a final table that gives final medians and HPDs for
-        AA_freq, Aa_freq, aa_freq, A_freq, a_freq, F.
-    
-    3.  Create a stand-alone routine to produce the summary chart:
-    
-        a.  We want to plot one row with a_freq and a second row with aa_freq.
-            (4 experiments across), with one page (or a new figure?) per
-            popsize.
-    
-        b.  Shared y-axis. Shared x-axis label only. Each experiment clearly
-            identified.
-            
-    6. Plot the inbreeding coefficient, F, calculated at each time point,
-       on top of the a_freq figures (and I guess, the AA_freq figures as well).
-
-
+    See: README.md for To-Do List.
 
     Samir Jain, Eric Epstein, Derek Braun*
     *derek.braun@gallaudet.edu
     Summer of '14
     
-    We follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
+    We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
     
-    Because this code is intended to be archived, this doesn't follow the 
-    don't-repeat-yourself (DRY) philosophy of object-oriented programming.
-    All of our code is contained in this one script, and is not intended to
-    be modular.
+    Because this code is intended for archival and may be re-run years down
+    the road, we purposely wrote this code to be as self-sufficient as 
+    possible. We have contained all our code in one script and avoided
+    spilling over to external modules wherever reasonable.
 '''
 
 DEBUG_MODE = True
@@ -79,34 +51,29 @@ EXPERIMENTS = [ # small pop, equal fitness, random mating
                {'constant_pop_size' : 10000,     
                 'aa_fitness'        : 1,
                 'aa_homogamy'       : 0.9},
-                # small pop, aa have 2x fitness, random mating
+                # small pop, aa homozygotes have 2x fitness, random mating
                {'constant_pop_size' : 10000,      
                 'aa_fitness'        : 2,
                 'aa_homogamy'       : 0.},
-                # small pop, aa have 2x fitness, assortative mating
+                # small pop, aa homozygotes have 2x fitness, assortative mating
                {'constant_pop_size' : 10000,      
                 'aa_fitness'        : 2,
                 'aa_homogamy'       : 0.9}]
 
-ASPECT_RATIO = (16,9)
 GALLAUDET_BLUE = '#003b65'
 GALLAUDET_BUFF = '#e5d19e'
-CHART_COLORS = [GALLAUDET_BLUE,GALLAUDET_BUFF,'LightSkyBlue',
-                'LightPink','LightGreen','LightSalmon']
 PEN_COLOR = 'black'
 
 
 def varyAssort(constant_pop_size, aa_fitness, aa_homogamy):
     '''
-        This is the actual simulation routine.
-        It calls simuPOP and passes on the appropriate parameters.
-        
         Accepts:
         constant_pop_size   population size, which remains constant throughout
         aa_fitness          _relative_ fitness of deaf individuals
         aa_homogamy         the percent of assortative mating between
                             deaf individuals
-        Returns: a dict containing the results from the simulation.
+
+        Returns a dict containing the results from the simulation.
     '''        
     setRNG(random.seed(getRNG().seed()))
     pop = Population(constant_pop_size, loci=1, infoFields='fitness')
@@ -171,76 +138,88 @@ def varyAssort(constant_pop_size, aa_fitness, aa_homogamy):
             'row':pop.dvars().row}
 
 
-def contour_plot(ax, X, Y, xlabel='', ylabel='', title='', scaling=1.0):
+def contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None,
+                 titlesize=20, labelsize=20, ticklabelsize=16, scaling=1):
     '''
-        Produces a form of line chart, where the median is shown as a line
-        and the area between the 5% and 95% CI are shaded.
+        Produces a type of line chart, where for each x, the median value is 
+        shown as a line, and the area between the 5% and 95% CI are shaded.
+        
         Accepts:
-            ax          a matplotlib.pyplot axis instance
-            X           an array of float or int x values
-            Y           an array of tuples of float y values (95%, median, 5%)
-            xlabel      x axis label string
-            ylabel      y axis label string
-            title       axis title
-            scaling     a float which scales the graph. The default scaling
-                        (1.0) is appropriate for poster size.
+            ax              a matplotlib.pyplot axis instance
+            X               an array of x values
+            Yt              an array of y tuples (95%, median, 5%)
+            xlabel          x axis label string
+            ylabel          y axis label string
+            title           axis title
+            titlesize       font size (in points) for titles
+            labelsize       font size (in points) for x and y labels
+            ticklabelsize   font size (in points) for xtick and ytick labels
+            scaling         a float which scales the graph, including line widths
+                            and all font sizes.
     '''
     # unpack Y tuple
-    upper_CIs = [y[0] for y in Y]
-    medians = [y[1] for y in Y]
-    lower_CIs = [y[2] for y in Y]
+    Y_uppers = [t[0] for t in Yt]
+    Y_medians = [t[1] for t in Yt]
+    Y_lowers = [t[2] for t in Yt]
     ax.set_xlim(min(X),max(X))
-    if title <> '':
-        ax.set_title(title, fontsize=20*scaling)
-    ax.set_xlabel(xlabel, fontsize=20*scaling)
-    ax.set_ylabel(ylabel, fontsize=20*scaling)
-    ax.fill_between(X, upper_CIs, lower_CIs, color=GALLAUDET_BUFF)
-    ax.text(max(X)*0.98, max(upper_CIs), '{:.2f}'.format(upper_CIs[-1]), 
-            va='bottom', ha='right', fontsize=16*scaling)
-    ax.plot(X, medians, color=GALLAUDET_BLUE, lw=3*scaling)
-    ax.text(max(X)*0.98, max(medians), '{:.2f}'.format(medians[-1]), 
-            va='bottom', ha='right', fontsize=16*scaling)
-    ax.text(max(X)*0.98, min(lower_CIs), '{:.2f}'.format(lower_CIs[-1]), 
-            va='top', ha='right', fontsize=16*scaling)
-    ax.grid(False)         # turns off gridlines
-    return ax
+    if title is not None:
+        ax.set_title(title, fontsize=titlesize*scaling)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel, fontsize=labelsize*scaling)
+    if ylabel is not None:
+        ax.set_ylabel(ylabel, fontsize=labelsize*scaling)
+    ax.fill_between(X, Y_uppers, Y_lowers, color=GALLAUDET_BUFF)
+    ax.text(max(X)*0.98, max(Y_uppers), '{:.2f}'.format(Y_uppers[-1]), 
+            va='bottom', ha='right', fontsize=ticklabelsize*scaling)
+    ax.plot(X, Y_medians, color=GALLAUDET_BLUE, lw=3*scaling)
+    ax.text(max(X)*0.98, max(Y_medians), '{:.2f}'.format(Y_medians[-1]), 
+            va='bottom', ha='right', fontsize=ticklabelsize*scaling)
+    ax.text(max(X)*0.98, min(Y_lowers), '{:.2f}'.format(Y_lowers[-1]), 
+            va='top', ha='right', fontsize=ticklabelsize*scaling)
+    # turn off gridlines
+    ax.grid(False)
+    # set tick label sizes
+    for label in ax.get_xticklabels() + ax.get_yticklabels():
+        label.set_fontsize(ticklabelsize*scaling) 
+    return ax   
     
-    
-def write_summary_contour_plot(filename, Xarr, Yarr, cols, titles=[], title='',
-                  xlabel='', ylabel=''):
+
+def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[], 
+                               title=None, xlabel=None, ylabel=None,
+                               titlesize=24, labelsize=20, ticklabelsize=14):
     '''
-        Writes a 2D array of scatter plots to filename.
-        from http://matplotlib.org/examples/pylab_examples/subplots_demo.html
+        Produces a type of line chart, where for each x, the median value is 
+        shown as a line, and the area between the 5% and 95% CI are shaded.
         
-        The median is shown as a line and the area between the 5% and 95% CI 
-        are shaded.
         Accepts:
             filename    the filename (including path and extension) for the
                         new plot to be created
             Xarr        an array of arrays of x values
-            Yarr        an array of arrays of a tuple of three Y values:
+            Yarr        an array of arrays consisting of a tuple of three 
+                        Y values:
                             (5%, median, 95%)
             titles      an array of plot titles
             title       main plot title
             xlabel      x axis label string
             ylabel      y axis label string
+            
+        Doesn't return anything
+        Writes a PDF file to filename.
+        
+        Examples for setting up multiple charts on shared axes are at:
+        http://matplotlib.org/examples/pylab_examples/subplots_demo.html
     '''
-    rows = 1            # we might add the ability for more rows later
-    scaling = 0.5       # controls the size of text, which needs to be made
-                        # smaller as more subplots are added
     
-    # The link below gives examples of setting up multiple charts on shared 
-    # axes:
-    # 
-    # http://matplotlib.org/mpl_examples/pylab_examples/subplots_demo.py
-    
-    def adjustFigAspect(fig,aspect=1):
+    def adjustFigAspect(fig, aspect=1):
         '''
-            Adjust the subplot parameters so that the figure has the correct
-            aspect ratio.
+            Adjusts the whitespace around a figure so that each subplot 
+            achieves the desired aspect ratio (square by default).
+            Accepts a matplotlib figure object.
+            Doesn't need to return anything because it directly modifies the 
+            figure object.
         '''
-        xsize,ysize = fig.get_size_inches()
-        minsize = min(xsize,ysize)
+        xsize, ysize = fig.get_size_inches()
+        minsize = min(xsize, ysize)
         xlim = .4*minsize/xsize
         ylim = .4*minsize/ysize
         if aspect < 1:
@@ -251,45 +230,53 @@ def write_summary_contour_plot(filename, Xarr, Yarr, cols, titles=[], title='',
                             right=.5+xlim,
                             bottom=.5-ylim,
                             top=.5+ylim)
-    
-    
+
     plt.clf()
-    plt.title(title, y=1.10, fontsize=20*scaling)
-    fig = plt.figure(figsize=ASPECT_RATIO)
-    fig, axarr = plt.subplots(rows, cols, sharex=True, sharey=True)
-    for ax, X, Y, title in zip(axarr, Xarr, Yarr, titles):
+    fig, axarr = plt.subplots(nrows, ncols, sharex=True, sharey=True)
+    fig.suptitle(title, fontsize=titlesize)
+    for ax, X, Y, title in zip(axarr.flat, Xarr, Yarr, titles):
         ax = contour_plot(ax, X, Y,
                           xlabel=xlabel,
-                          ylabel=ylabel, 
-                          title=title.replace(',','\n'),
-                          scaling=scaling)
-    plt.tight_layout()
-    # hide ytick labels in all plots but the leftmost
-    plt.setp([ax.get_yticklabels() for ax in axarr[0:]], visible=False) 
-    plt.setp([ax.get_yticklines() for ax in axarr[0:]], visible=False)
-    plt.setp([ax.get_xticklabels() for ax in axarr[0:]], fontsize=16*scaling) 
+                          ylabel=ylabel,
+                          title=title,
+                          titlesize=titlesize,
+                          labelsize=labelsize,
+                          ticklabelsize=ticklabelsize,
+                          scaling=1./len(axarr.flat))
+    adjustFigAspect(fig)
     plt.savefig(filename, transparent=True)
 
 
-def write_contour_plot(filename, X, Y, title='', xlabel='', ylabel=''):
+def write_contour_plot(filename, X, Y, title=None, xlabel=None, ylabel=None,
+                       titlesize=24, labelsize=20, ticklabelsize=14):
     '''
-        Writes a scatter plot to filename.
-        The median is shown as a line and the area between the 5% and 95% CI 
-        are shaded.
+        Produces a type of line chart, where for each x, the median value is 
+        shown as a line, and the area between the 5% and 95% CI are shaded.
+        
         Accepts:
             filename    the filename (including path and extension) for the
                         new plot to be created
             X           an array of x values
-            Y           an array consisting of a tuple of three Y values:
-                            (5%, median, 95%)
-            xlabel      x axis label string
-            ylabel      y axis label string
+            Yt              an array of y tuples (95%, median, 5%)
+            xlabel          x axis label string
+            ylabel          y axis label string
+            title           axis title
+            titlesize       font size (in points) for titles
+            labelsize       font size (in points) for x and y labels
+            ticklabelsize   font size (in points) for xtick and ytick labels
+            scaling         a float which scales the graph, including line widths
+                            and all font sizes.
+            
+        Doesn't return anything
+        Writes a PDF file to filename.
     '''
     plt.clf()
-    fig = plt.figure(figsize=ASPECT_RATIO)
-    plt.title(title, y=1.10, fontsize=20)
+    fig = plt.figure()
+    if title is not None:
+        plt.title(title, fontsize=titlesize)
     ax = fig.add_subplot(111)
-    ax = contour_plot(ax, X, Y, xlabel=xlabel, ylabel=ylabel)
+    ax = contour_plot(ax, X, Y, xlabel=xlabel, ylabel=ylabel,
+                      labelsize=labelsize, ticklabelsize=ticklabelsize)
     plt.tight_layout()     # eliminates whitespace around the plot
     plt.savefig(filename, transparent=True)
 
@@ -441,16 +428,19 @@ if __name__ == '__main__':
         
         # Create individual contour charts
         filename = os.path.join(args.path,file.replace('.tsv','.pdf'))
-        print "Saving chart to '{filename}'.".format(filename=filename)
+        print "Saving chart to '{}'.".format(filename)
         write_contour_plot(filename, X, a_freqs,
                            title=title,
                            xlabel='Generation',
                            ylabel='Recessive allele frequency')
-    
-    write_summary_contour_plot(args.path+'summary.pdf', 
+    filename = os.path.join(args.path, 'summary.pdf')
+    print "Saving summary chart to '{}'.".format(filename)
+    write_summary_contour_plot(filename, 
                                Xarr=[X for i in range(len(a_freqs))], 
                                Yarr=a_freqs_arr,
-                               cols=4,
+                               nrows=2,
+                               ncols=2,
+                               title='homogamy.py summary data',
                                titles=titles,
                                xlabel='Generation',
                                ylabel='Recessive allele frequency')
