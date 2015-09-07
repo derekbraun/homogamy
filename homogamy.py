@@ -28,12 +28,6 @@ import time
 import csv
 import multiprocessing
 import numpy 
-import matplotlib
-# The matplotlib.use command, which specifies the backend, *must* appear
-# before importing pyplot. For choices of backends, see:
-# http://matplotlib.org/faq/usage_faq.html#what-is-a-backend
-matplotlib.use('Agg') 
-from matplotlib import pyplot as plt
 import simuOpt
 if not DEBUG_MODE:
     simuOpt.setOptions(optimized=True, numThreads=0)
@@ -59,10 +53,6 @@ EXPERIMENTS = [ # small pop, equal fitness, random mating
                {'constant_pop_size' : 10000,      
                 'aa_fitness'        : 2,
                 'aa_homogamy'       : 0.9}]
-
-GALLAUDET_BLUE = '#003b65'
-GALLAUDET_BUFF = '#e5d19e'
-PEN_COLOR = 'black'
 
 
 def varyAssort(constant_pop_size, aa_fitness, aa_homogamy):
@@ -138,8 +128,38 @@ def varyAssort(constant_pop_size, aa_fitness, aa_homogamy):
             'row':pop.dvars().row}
 
 
+#
+#   GRAPHING
+#   
+
+import matplotlib
+# The matplotlib.use command, which specifies the backend, *must* appear
+# before importing pyplot. For choices of backends, see:
+# http://matplotlib.org/faq/usage_faq.html#what-is-a-backend
+matplotlib.use('Agg') 
+from matplotlib import pyplot as plt, lines
+GALLAUDET_BLUE = '#003b65'
+GALLAUDET_BUFF = '#e5d19e'
+FIG_ASPECT_RATIO = (16,9)
+COLORS = [GALLAUDET_BLUE,GALLAUDET_BUFF]
+#see: http://matplotlib.sourceforge.net/users/customizing.html
+
+def _set_pen_color(background):
+    if background == 'black':
+        pen_color = 'white'
+    else:
+        pen_color = 'black'
+    matplotlib.rc ('font',size=16)
+#   matplotlib.rc('text', usetex=True)
+    matplotlib.rc ('axes',titlesize='large', labelsize='large', edgecolor='#cccccc')
+    matplotlib.rc ('xtick',labelsize='medium',color=pen_color)
+    matplotlib.rc ('ytick',labelsize='medium',color=pen_color)
+    return pen_color
+
+
 def contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None,
-                 titlesize=20, labelsize=20, ticklabelsize=16, scaling=1):
+                 titlesize=20, labelsize=20, ticklabelsize=16, scaling=1,
+                 background='white'):
     '''
         Produces a type of line chart, where for each x, the median value is 
         shown as a line, and the area between the 5% and 95% CI are shaded.
@@ -157,25 +177,27 @@ def contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None,
             scaling         a float which scales the graph, including line widths
                             and all font sizes.
     '''
+    
+    pen_color = _set_pen_color(background)
     # unpack Y tuple
     Y_uppers = [t[0] for t in Yt]
     Y_medians = [t[1] for t in Yt]
     Y_lowers = [t[2] for t in Yt]
     ax.set_xlim(min(X),max(X))
     if title is not None:
-        ax.set_title(title, fontsize=titlesize*scaling)
+        ax.set_title(title, fontsize=titlesize*scaling, color=pen_color)
     if xlabel is not None:
-        ax.set_xlabel(xlabel, fontsize=labelsize*scaling)
+        ax.set_xlabel(xlabel, fontsize=labelsize*scaling, color=pen_color)
     if ylabel is not None:
-        ax.set_ylabel(ylabel, fontsize=labelsize*scaling)
+        ax.set_ylabel(ylabel, fontsize=labelsize*scaling, color=pen_color)
     ax.fill_between(X, Y_uppers, Y_lowers, color=GALLAUDET_BUFF)
-    ax.text(max(X)*0.98, max(Y_uppers), '{:.2f}'.format(Y_uppers[-1]), 
-            va='bottom', ha='right', fontsize=ticklabelsize*scaling)
+    ax.text(max(X)*1.02, max(Y_uppers), '{:.2f}'.format(Y_uppers[-1]), 
+            va='bottom', ha='left', fontsize=ticklabelsize*scaling, color=pen_color)
     ax.plot(X, Y_medians, color=GALLAUDET_BLUE, lw=3*scaling)
-    ax.text(max(X)*0.98, max(Y_medians), '{:.2f}'.format(Y_medians[-1]), 
-            va='bottom', ha='right', fontsize=ticklabelsize*scaling)
-    ax.text(max(X)*0.98, min(Y_lowers), '{:.2f}'.format(Y_lowers[-1]), 
-            va='top', ha='right', fontsize=ticklabelsize*scaling)
+    ax.text(max(X)*1.02, max(Y_medians), '{:.2f}'.format(Y_medians[-1]), 
+            va='bottom', ha='left', fontsize=ticklabelsize*scaling, color=pen_color)
+    ax.text(max(X)*1.02, min(Y_lowers), '{:.2f}'.format(Y_lowers[-1]), 
+            va='top', ha='left', fontsize=ticklabelsize*scaling, color=pen_color)
     # turn off gridlines
     ax.grid(False)
     # set tick label sizes
@@ -186,7 +208,8 @@ def contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None,
 
 def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[], 
                                title=None, xlabel=None, ylabel=None,
-                               titlesize=24, labelsize=20, ticklabelsize=14):
+                               titlesize=36, labelsize=36, ticklabelsize=28,
+                               background='white'):
     '''
         Produces a type of line chart, where for each x, the median value is 
         shown as a line, and the area between the 5% and 95% CI are shaded.
@@ -210,7 +233,7 @@ def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[],
         http://matplotlib.org/examples/pylab_examples/subplots_demo.html
     '''
     
-    def adjustFigAspect(fig, aspect=1):
+    def adjustFigAspect(fig, aspect=1.5):
         '''
             Adjusts the whitespace around a figure so that each subplot 
             achieves the desired aspect ratio (square by default).
@@ -231,9 +254,10 @@ def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[],
                             bottom=.5-ylim,
                             top=.5+ylim)
 
+    pen_color = _set_pen_color(background)
     plt.clf()
     fig, axarr = plt.subplots(nrows, ncols, sharex=True, sharey=True)
-    fig.suptitle(title, fontsize=titlesize)
+    fig.suptitle(title, fontsize=titlesize, color=pen_color)
     for ax, X, Y, title in zip(axarr.flat, Xarr, Yarr, titles):
         ax = contour_plot(ax, X, Y,
                           xlabel=xlabel,
@@ -242,13 +266,16 @@ def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[],
                           titlesize=titlesize,
                           labelsize=labelsize,
                           ticklabelsize=ticklabelsize,
-                          scaling=1./len(axarr.flat))
+                          scaling=1./len(axarr.flat),
+                          background=background)
     adjustFigAspect(fig)
+    fig.tight_layout()
     plt.savefig(filename, transparent=True)
 
 
 def write_contour_plot(filename, X, Y, title=None, xlabel=None, ylabel=None,
-                       titlesize=24, labelsize=20, ticklabelsize=14):
+                       titlesize=24, labelsize=20, ticklabelsize=14,
+                       background='white'):
     '''
         Produces a type of line chart, where for each x, the median value is 
         shown as a line, and the area between the 5% and 95% CI are shaded.
@@ -264,20 +291,24 @@ def write_contour_plot(filename, X, Y, title=None, xlabel=None, ylabel=None,
             titlesize       font size (in points) for titles
             labelsize       font size (in points) for x and y labels
             ticklabelsize   font size (in points) for xtick and ytick labels
-            scaling         a float which scales the graph, including line widths
-                            and all font sizes.
+            scaling         a float which scales the graph, including font
+                            sizes and line widths.
             
         Doesn't return anything
         Writes a PDF file to filename.
     '''
+    pen_color = _set_pen_color(background)
     plt.clf()
     fig = plt.figure()
     if title is not None:
-        plt.title(title, fontsize=titlesize)
+        plt.title(title, fontsize=titlesize, color=pen_color)
     ax = fig.add_subplot(111)
-    ax = contour_plot(ax, X, Y, xlabel=xlabel, ylabel=ylabel,
-                      labelsize=labelsize, ticklabelsize=ticklabelsize)
-    plt.tight_layout()     # eliminates whitespace around the plot
+    ax = contour_plot(ax, X, Y, 
+                      xlabel=xlabel, ylabel=ylabel,
+                      labelsize=labelsize,
+                      ticklabelsize=ticklabelsize,
+                      background=background)
+    fig.tight_layout()
     plt.savefig(filename, transparent=True)
 
 
@@ -399,6 +430,7 @@ if __name__ == '__main__':
                 data += [row]
         # This clever Python shorthand transposes a table. It will cause data
         # truncation if the table does not have consistent dimensions.
+        # note: the transposed table is a list of tuples, not a list of lists!
         data = zip(*data)
         
         params_arr.append(params)
@@ -417,30 +449,37 @@ if __name__ == '__main__':
                                 numpy.median(col), 
                                 col[int(0.025*len(col))]))
         a_freqs_arr.append(a_freqs)
-        
-        title='popsize={}, '\
-              'aa_fitness={}, '\
-              'aa_homogamy={}'\
-              ''.format(params['constant_pop_size'],
-                        params['aa_fitness'],
-                        params['aa_homogamy'])
+        title='N={:,}   '\
+              'fitness={:.1f}    '\
+              'homogamy={:.1f}'\
+              ''.format(int(params['constant_pop_size']),
+                        float(params['aa_fitness']),
+                        float(params['aa_homogamy']))
         titles.append(title)
         
         # Create individual contour charts
-        filename = os.path.join(args.path,file.replace('.tsv','.pdf'))
-        print "Saving chart to '{}'.".format(filename)
-        write_contour_plot(filename, X, a_freqs,
-                           title=title,
-                           xlabel='Generation',
-                           ylabel='Recessive allele frequency')
-    filename = os.path.join(args.path, 'summary.pdf')
-    print "Saving summary chart to '{}'.".format(filename)
-    write_summary_contour_plot(filename, 
-                               Xarr=[X for i in range(len(a_freqs))], 
-                               Yarr=a_freqs_arr,
-                               nrows=2,
-                               ncols=2,
-                               title='homogamy.py summary data',
-                               titles=titles,
+        for background in ['white','black']:
+            new_ext = background + '.pdf'
+            filename = os.path.join(args.path, file.replace('.tsv', new_ext))
+            print "Saving chart to '{}'.".format(filename)
+            write_contour_plot(filename, X, a_freqs,
+                               title=title,
                                xlabel='Generation',
-                               ylabel='Recessive allele frequency')
+                               ylabel='Allele frequency',
+                               background=background)
+    
+    # Create summary contour charts
+    for background in ['white','black']:
+        bn = 'summary.{}.pdf'.format(background)
+        filename = os.path.join(args.path, bn)
+        print "Saving summary chart to '{}'.".format(filename)
+        write_summary_contour_plot(filename, 
+                                   Xarr=[X for i in range(len(a_freqs))], 
+                                   Yarr=a_freqs_arr,
+                                   nrows=2,
+                                   ncols=2,
+                                   title='',
+                                   titles=titles,
+                                   xlabel='Generation',
+                                   ylabel='Allele frequency',
+                                   background = background)
