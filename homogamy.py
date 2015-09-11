@@ -34,12 +34,8 @@
 #       This looked easy enough and would not take long, but I am currently 
 #       in a time crunch for my presentation at NIDCD.  
 #
-#   2.  Change the plot into a gradient density plot. This can be done by
-#       creating many plots on the same axis with alpha channels to achieve
-#       a gradient effect (or alternatively, creating overlapping plots using
-#       zorders). Write this routine for a variable number of gradients. I 
-#       think a default of 100 gradients would be more than enough. Too
-#       many gradients would make the vector file too large.
+#   2.  The density plot has a *horribly* inefficient and confusingly written
+#       algorithm, although it ultimately works well.
 
 DEBUG_MODE = False
 
@@ -253,26 +249,36 @@ def _set_plot_params(use='print', scaling=1.0):
                                     hspace=0.3)
     return d['colors']
 
-def contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None, 
+def deprecated_contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None, 
                             use='print', scaling=1.0):
     '''
-        Produces a type of line chart, where for each x, the median value is 
-        shown as a line, and the area between the 5% and 95% CI are shaded.
+        Produces a contour plot. For each x, the median values and 95.5%
+        confidence intervals are represented and marked.
         
         Accepts:
             ax              a matplotlib.pyplot axis instance
             X               an array of x values
-            Yt              an array of y tuples (95%, median, 5%)
+            Ya              an array of an array of y values
             xlabel          x axis label string
             ylabel          y axis label string
-            use         determines the font size and line width according
+            use             determines the font size and line width according
                             to the global PLOT_PARAMS dict.
+            scaling         scaling factor needed for creating subplots,
+                            where the text and lines need to be scaled down.
     '''
     _set_plot_params(use, scaling)
-    # unpack Y tuple
-    Y_uppers = [t[0] for t in Yt]
-    Y_medians = [t[1] for t in Yt]
-    Y_lowers = [t[2] for t in Yt]
+    # calculate confidence intervals
+    Y_upper_cis = []
+    Y_medians = []
+    Y_lower_cis = []
+    for Y in Ya:
+        Y = list(Y)
+        Y = map(float, Y)
+        Y.sort()
+        Y_upper_cis.append(Y[int(0.975*len(Y))])
+        Y_medians.append(numpy.median(Y))
+        Y_lower_cis.append(Y[int(0.025*len(Y))])
+    
     ax.set_xlim(min(X),max(X))
     if title is not None:
         ax.set_title(title)
@@ -280,20 +286,93 @@ def contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None,
         ax.set_xlabel(xlabel)
     if ylabel is not None:
         ax.set_ylabel(ylabel)
-    ax.fill_between(X, Y_uppers, Y_lowers, color=GALLAUDET_BUFF)
-    ax.text(max(X)*1.02, max(Y_uppers), '{:.2f}'.format(Y_uppers[-1]), 
+    ax.fill_between(X, Y_upper_cis, Y_lower_cis, color=GALLAUDET_BUFF)
+    ax.plot(X, Y_upper_cis, color=GALLAUDET_BLUE)
+    ax.text(max(X)*1.02, Y_upper_cis[-1], '{:.2f}'.format(Y_upper_cis[-1]), 
             va='bottom', ha='left')
-    ax.plot(X, Y_medians, color=GALLAUDET_BLUE, lw=3*scaling)
+    ax.plot(X, Y_medians, color=GALLAUDET_BLUE)
     ax.text(max(X)*1.02, max(Y_medians), '{:.2f}'.format(Y_medians[-1]), 
             va='bottom', ha='left')
-    ax.text(max(X)*1.02, min(Y_lowers), '{:.2f}'.format(Y_lowers[-1]), 
+    ax.plot(X, Y_lower_cis, color=GALLAUDET_BLUE)
+    ax.text(max(X)*1.02, Y_lower_cis[-1], '{:.2f}'.format(Y_lower_cis[-1]), 
             va='top', ha='left')
-    
     ax.grid(False)      # turns off gridlines
     return ax
+ 
+ 
+def density_plot(ax, X, Ya, title=None, xlabel=None, ylabel=None, 
+                            use='print', gradients=32, scaling=1.0):
+    '''
+        Produces a density plot.
+        The median values and 95% credible intervals are also represented 
+        with lines.
+        
+        Accepts:
+            ax              a matplotlib.pyplot axis instance
+            X               an array of x values
+            Ya              an array of an array of y values
+            xlabel          x axis label string
+            ylabel          y axis label string
+            use             determines the font size and line width according
+                            to the global PLOT_PARAMS dict.
+            gradients       the number of gradients. More gradients means
+                            a smoother looking density plot at the cost of
+                            many more polygons and therefore a larger vector
+                            file which may not, for example, print.
+            scaling         scaling factor needed for creating subplots,
+                            where the text and lines need to be scaled down.
+    '''
+    _set_plot_params(use, scaling)
+    # calculate gradient
+    Y_upper_cis = []
+    Y_medians = []
+    Y_lower_cis = []
+    Ygrads = []
+    for Y in Ya:
+        Y = list(Y)
+        Y = map(float, Y)
+        Y.sort()
+        Y_upper_cis.append(Y[int(0.975*len(Y))])
+        Y_medians.append(numpy.median(Y))
+        Y_lower_cis.append(Y[int(0.025*len(Y))])
+    Ygrads = []
+    for i in range(gradients):
+        Yugs=[]
+        Ylgs=[]
+        for Y in Ya:
+            # horribly inefficient
+            Y = list(Y)
+            Y = map(float, Y)
+            Y.sort()
+            step = len(Y)/(2*gradients)
+            uidx = len(Y) - i*step - 1
+            lidx = i*step
+            Yugs.append(Y[uidx])
+            Ylgs.append(Y[lidx])
+        Ygrads.append((Yugs,Ylgs))
     
+    ax.set_xlim(min(X),max(X))
+    if title is not None:
+        ax.set_title(title)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
+    if ylabel is not None:
+        ax.set_ylabel(ylabel)
+    for i, Yg in enumerate(Ygrads):
+        ax.fill_between(X, Yg[0], Yg[1], color=GALLAUDET_BUFF, alpha=1./(gradients/4.))
+    ax.plot(X, Y_upper_cis, color=GALLAUDET_BLUE)
+    ax.text(max(X)*1.02, Y_upper_cis[-1], '{:.2f}'.format(Y_upper_cis[-1]), 
+            va='bottom', ha='left')
+    ax.plot(X, Y_medians, color=GALLAUDET_BLUE)
+    ax.text(max(X)*1.02, max(Y_medians), '{:.2f}'.format(Y_medians[-1]), 
+            va='bottom', ha='left')
+    ax.plot(X, Y_lower_cis, color=GALLAUDET_BLUE)
+    ax.text(max(X)*1.02, Y_lower_cis[-1], '{:.2f}'.format(Y_lower_cis[-1]), 
+            va='top', ha='left')
+    ax.grid(False)      # turns off gridlines
+    return ax 
 
-def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[], 
+def write_summary_density_plot(filename, Xarr, Yarr, nrows, ncols, multiplot_titles=[], 
                                title=None, xlabel=None, ylabel=None,
                                use='print'):
     '''
@@ -307,7 +386,7 @@ def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[],
             Yarr        an array of arrays consisting of a tuple of three 
                         Y values:
                             (5%, median, 95%)
-            titles      an array of plot titles
+            multiplot_titles      an array of plot multiplot_titles
             title       main plot title
             xlabel      x axis label string
             ylabel      y axis label string
@@ -344,8 +423,8 @@ def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[],
     plt.clf()
     fig, axarr = plt.subplots(nrows, ncols, sharex=True, sharey=True)
     fig.suptitle(title)
-    for ax, X, Y, title in zip(axarr.flat, Xarr, Yarr, titles):
-        ax = contour_plot(ax, X, Y,
+    for ax, X, Ya, title in zip(axarr.flat, Xarr, Yarr, multiplot_titles):
+        ax = density_plot(ax, X, Ya,
                           xlabel=xlabel,
                           ylabel=ylabel,
                           title=title,
@@ -356,7 +435,7 @@ def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[],
     plt.close()
 
 
-def write_contour_plot(filename, X, Y, title=None, xlabel=None, ylabel=None,
+def write_density_plot(filename, X, Y, title=None, xlabel=None, ylabel=None,
                        use='print'):
     '''
         Produces a type of line chart, where for each x, the median value is 
@@ -380,7 +459,7 @@ def write_contour_plot(filename, X, Y, title=None, xlabel=None, ylabel=None,
     if title is not None:
         plt.title(title)
     ax = fig.add_subplot(111)
-    ax = contour_plot(ax, X, Y, 
+    ax = density_plot(ax, X, Y, 
                       xlabel=xlabel,
                       ylabel=ylabel,
                       use=use)
@@ -486,9 +565,9 @@ if __name__ == '__main__':
     print "Looking for .tsv files in '{}'.".format(args.path)
     files = [f for f in os.listdir(args.path) \
                 if os.path.isfile(os.path.join(args.path, f)) and '.tsv' in f]
-    a_freqs_arr = []
-    params_arr= []
-    titles = []
+    multiplot_a_freqs = []
+    multiplot_params= []
+    multiplot_titles = []
     for file in files:
         f = open(os.path.join(args.path, file),'r')
         rows = csv.reader(f, dialect=csv.excel_tab)
@@ -511,36 +590,32 @@ if __name__ == '__main__':
         # note: the transposed table is a list of tuples, not a list of lists!
         data = zip(*data)
         
-        params_arr.append(params)
+        multiplot_params.append(params)
         # Select and type convert X, which should be the same for all data.
         X = []
         for h, col in zip(headers, data):
             if 'gen' in h:
                 X.append(int(col[0]))
-        # Select a_freq.
+        # Select a_freq
         a_freqs = []
         for h, col in zip(headers, data):
             if 'a_freq' in h:
-                col = map(float, col)
-                col.sort()
-                a_freqs.append((col[int(0.975*len(col))], 
-                                numpy.median(col), 
-                                col[int(0.025*len(col))]))
-        a_freqs_arr.append(a_freqs)
+                a_freqs.append(col)
+        multiplot_a_freqs.append(a_freqs)
         title='N={:,}   '\
               'fitness={:.1f}    '\
               'homogamy={:.1f}'\
               ''.format(int(params['constant_pop_size']),
                         float(params['aa_fitness']),
                         float(params['aa_homogamy']))
-        titles.append(title)
+        multiplot_titles.append(title)
         
         # Create individual contour charts
         for use in ['print','slides_light_bg', 'slides_dark_bg']:
             new_ext = '.{}.pdf'.format(use)
             filename = os.path.join(args.path, file.replace('.tsv', new_ext))
             print "Saving chart to '{}'.".format(filename)
-            write_contour_plot(filename, X, a_freqs,
+            write_density_plot(filename, X, a_freqs,
                                title=title,
                                xlabel='Generations',
                                ylabel='Recessive Allele Frequency',
@@ -551,13 +626,13 @@ if __name__ == '__main__':
         bn = 'summary.{}.pdf'.format(use)
         filename = os.path.join(args.path, bn)
         print "Saving summary chart to '{}'.".format(filename)
-        write_summary_contour_plot(filename, 
-                                   Xarr=[X for i in range(len(a_freqs))], 
-                                   Yarr=a_freqs_arr,
+        write_summary_density_plot(filename, 
+                                   Xarr=[X for i in range(len(multiplot_a_freqs))],
+                                   Yarr=multiplot_a_freqs,
                                    nrows=2,
                                    ncols=2,
                                    title='',
-                                   titles=titles,
+                                   multiplot_titles=multiplot_titles,
                                    xlabel='Generations',
                                    ylabel='Recessive Allele Frequency',
                                    use = use)
