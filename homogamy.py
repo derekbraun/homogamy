@@ -16,7 +16,32 @@
     spilling over to external modules wherever reasonable.
 '''
 
-DEBUG_MODE = True
+#   Needed changes:
+#   1.  We need to be able to run this simulation with a smaller allele
+#       frequency without running out of males or females.
+#
+#       To do this, change the Mating Scheme to generate more than 1 offspring 
+#       per mating, which is not realistic anyway. Refer to Arnos paper on
+#       fitness for what this number of offspring should be.
+#
+#       Bo Peng suggested starting with:
+#       matingScheme = HeteroMating([HomoMating(subPops=[(0,1)], weight=aa_homogamy),
+#                                    HomoMating(weight=1-aa_homogamy)])
+#
+#       This is close to the predefined RandomMating scheme. The above 
+#       suggestion did not work "out of the box" because additional
+#       parameters need to be specified. From looking at the _reference manual_
+#       This looked easy enough and would not take long, but I am currently 
+#       in a time crunch for my presentation at NIDCD.  
+#
+#   2.  Change the plot into a gradient density plot. This can be done by
+#       creating many plots on the same axis with alpha channels to achieve
+#       a gradient effect (or alternatively, creating overlapping plots using
+#       zorders). Write this routine for a variable number of gradients. I 
+#       think a default of 100 gradients would be more than enough. Too
+#       many gradients would make the vector file too large.
+
+DEBUG_MODE = False
 
 import sys
 import os
@@ -29,101 +54,108 @@ import csv
 import multiprocessing
 import numpy 
 import simuOpt
-if not DEBUG_MODE:
+if DEBUG_MODE:
+    PROPOSALS = 100
+else:
+    PROPOSALS = 1000
     simuOpt.setOptions(optimized=True, numThreads=0)
 from simuPOP import *
 print
 
-PROPOSALS = 1000
-#A_FREQ = 0.01304
-A_FREQ = 0.1304
+A_FREQ = 0.1304   # should be 0.01304 but this currently causes problems with 
+                  # running out of females
+GEN = 40
 EXPERIMENTS = [ # small pop, equal fitness, random mating
                 {'constant_pop_size': 10000,      
                 'aa_fitness'        : 1,
-                'aa_homogamy'       : 0.},
+                'aa_homogamy'       : 0.,
+                'a_freq'            : A_FREQ,
+                'gen'               : GEN},
                 # small pop, equal fitness, assortative mating
                {'constant_pop_size' : 10000,     
                 'aa_fitness'        : 1,
-                'aa_homogamy'       : 0.9},
+                'aa_homogamy'       : 0.9,
+                'a_freq'            : A_FREQ,
+                'gen'               : GEN},
                 # small pop, aa homozygotes have 2x fitness, random mating
                {'constant_pop_size' : 10000,      
-                'aa_fitness'        : 2,
-                'aa_homogamy'       : 0.},
+                'aa_fitness'        : 1.2,
+                'aa_homogamy'       : 0.,
+                'a_freq'            : A_FREQ,
+                'gen'               : GEN},
                 # small pop, aa homozygotes have 2x fitness, assortative mating
                {'constant_pop_size' : 10000,      
-                'aa_fitness'        : 2,
-                'aa_homogamy'       : 0.9}]
+                'aa_fitness'        : 1.2,
+                'aa_homogamy'       : 0.9,
+                'a_freq'            : A_FREQ,
+                'gen'               : GEN}]
 
 
-def varyAssort(constant_pop_size, aa_fitness, aa_homogamy):
+def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq, 
+                                     aa_fitness, aa_homogamy):
     '''
         Accepts:
         constant_pop_size   population size, which remains constant throughout
-        aa_fitness          _relative_ fitness of deaf individuals
+        gen                 number of generations
+        a_freq              starting frequency of the a allele
+        aa_fitness          _relative_ fitness of deaf (aa) individuals
         aa_homogamy         the percent of assortative mating between
                             deaf individuals
 
-        Returns a dict containing the results from the simulation.
+        Returns a dict containing the results from the simulation:
+        gen                 generation number
+        AA/Aa_size          size of the AA/aa population
+        aa_size             size of the aa population
+        A_freq              frequency of the A allele
+        a_freq              frequency of the a allele
     '''        
     setRNG(random.seed(getRNG().seed()))
-    pop = Population(constant_pop_size, loci=1, infoFields='fitness')
-    # The next line creates virtual subpopulations that are needed for 
-    # defining the mating scheme: 
-    #   The (0,0) subPop represents AA/Aa
-    #   The (0,1) subPop represents aa
-    vsps = GenotypeSplitter(loci=0, alleles=[[0,0,0,1],[1,1]])  
-    pop.setVirtualSplitter(vsps)
+    pop = Population(constant_pop_size, loci=[1], infoFields='fitness')
+    pop.dvars().header = [] 
+    pop.dvars().row = []
+    pop.setVirtualSplitter(GenotypeSplitter(loci=[0], alleles=[[0,0,0,1],[1,1]]))
+    # Creates two virtual subpopulations needed in order to define a mating 
+    # scheme: 
+    #   Note: allele definitions are _unphased_ so (0,1) and (1,0) are equivalent
+    #   alleles=[0,0,0,1] are individuals with 00 or 01 (AA/Aa)
+    #   alleles=[1,1] are individuals with 11 (aa)
     pop.evolve(
-        initOps = [InitSex(),
-                   InitGenotype(freq=[1-A_FREQ, A_FREQ]),
-                   PyExec('header=[]'),
-                   PyExec('row=[]')],
-        preOps = Stat(popSize=True, alleleFreq=[0], subPops=[(0,0), (0,1)]),
-        matingScheme = RandomMating(subPops=[(0,0), (0,1)]),
-        postOps = [PyExec(r"header += ['gen','AA/Aa_size','aa_size','A_freq',"\
-                                      "'a_freq']"),
+        initOps= [InitSex(),
+                  # assigns individuals randomly to be male or female.
+                  # This can result in slightly more males or females, 
+                  # which can cause errors if the wrong mating scheme is 
+                  # selected.
+                  InitGenotype(freq=[1-a_freq, a_freq])
+                  ],
+        preOps = [MapSelector(loci=[0], fitness={(0,0):1,
+                                                 (0,1):1,
+                                                 (1,1):aa_fitness})
+                  # Assigns fitness values to individuals with different
+                  # genotypes. This is stored in a field called 'fitness'
+                  # by default, which is then applied by the appropriate
+                  # mating scheme, also by default.
+                  # Fitness in this case is relative fitness and is applied 
+                  # during the mating scheme. Some mating schemes do not 
+                  # support fitness, so check the documentation!
+                  # If fitness is used, _all_ individuals must be assigned a 
+                  # fitness or those with no assignment will be calculated as
+                  # having zero fitness and will be discarded during the mating
+                  # scheme.
+                  ],
+        matingScheme = HeteroMating([RandomMating(subPops=[(1,1)], weight=aa_homogamy),
+                                     RandomMating(weight=1-aa_homogamy)]),
+        
+        postOps = [Stat(popSize=True, alleleFreq=[0], subPops=[(0,0), (0,1)]),
+                   PyExec(r"header += ['gen','AA/Aa_size','aa_size','A_freq','a_freq']"),
                    PyExec(r"row += [gen,"\
                                    "subPopSize[0],"\
                                    "subPopSize[1],"\
-                                   "alleleFreq[0][0], alleleFreq[0][1]]")],
-        gen = 10,
+                                   "alleleFreq[0][0], alleleFreq[0][1]]")
+                   ],
+        gen = gen
     )
-    pop.evolve(
-        preOps = [Stat(popSize=True, alleleFreq=[0], subPops=[(0,0), (0,1)]),
-                  # Because simuPop uses _absolute_ fitness and my logic uses
-                  # relative fitness, I need to convert relative fitness into
-                  # absolute fitness before passing to simuPOP.
-                  MapSelector(loci=0, fitness={(0,0):1./aa_fitness,
-                                               (0,1):1./aa_fitness,
-                                               (1,1):1.})],
-        # from documentation:        
-        # If multiple mating schemes are applied to the same subpopulation, 
-        # a weight (parameter weight) can be given to each mating scheme to 
-        # determine how many offspring it will produce. The default for all 
-        # mating schemes are 0. In this case, the number of offspring each 
-        # mating scheme produces is proportional to the size of its parental 
-        # (virtual) subpopulation. If all weights are negative, the numbers of 
-        # offspring are determined by the multiplication of the absolute values 
-        # of the weights and their respective parental (virtual) subpopulation 
-        # sizes. If all weights are positive, the number of offspring produced 
-        # by each mating scheme is proportional to these weights. Mating
-        # schemes with zero weight in this case will produce no offspring. 
-        # If both negative and positive weights are present, 
-        # negative weights are processed before positive ones.
-        matingScheme = HeteroMating([RandomMating(subPops=[(0,0), (0,1)],
-                                                  weight = -1+aa_homogamy),
-                                     RandomMating(subPops=[(0,0)],
-                                                  weight = 0),
-                                     RandomMating(subPops=[(0,1)],
-                                                  weight = 0)]),
-        postOps = [PyExec(r"header += ['gen','AA/Aa_size','aa_size','A_freq',"\
-                                      "'a_freq']"),
-                   PyExec(r"row += [gen,"\
-                                   "subPopSize[0],"\
-                                   "subPopSize[1],"\
-                                   "alleleFreq[0][0], alleleFreq[0][1]]")],
-        gen = 32,
-    )
+        
+    
     return {'header':pop.dvars().header,
             'row':pop.dvars().row}
 
@@ -136,30 +168,93 @@ import matplotlib
 # The matplotlib.use command, which specifies the backend, *must* appear
 # before importing pyplot. For choices of backends, see:
 # http://matplotlib.org/faq/usage_faq.html#what-is-a-backend
-matplotlib.use('Agg') 
+matplotlib.use('pdf') 
 from matplotlib import pyplot as plt, lines
+
+#see: http://matplotlib.sourceforge.net/users/customizing.html
+ASPECT_RATIO = (16,9)
 GALLAUDET_BLUE = '#003b65'
 GALLAUDET_BUFF = '#e5d19e'
-FIG_ASPECT_RATIO = (16,9)
-COLORS = [GALLAUDET_BLUE,GALLAUDET_BUFF]
-#see: http://matplotlib.sourceforge.net/users/customizing.html
+PLOT_PARAMS = { 'print': 
+                {   'aspect'    : 1.0,
+                    'colors'    : ['black', 'white', GALLAUDET_BLUE,
+                                    GALLAUDET_BUFF, 'LightSteelBlue',
+                                    'LightGoldenRodYellow','LightSkyBlue',
+                                    'LightPink','LightGreen','LightSalmon'],
+                    'font'      : 12,
+                    'title'     : 14,
+                    'axes'      : 12,
+                    'ticklabel' : 10,
+                    'minsize'   : 6,
+                    'linewidth' : 1,
+                    'minwidth'  : 0.5},
+                'slides_light_bg': 
+                {   'aspect'    : 1.6,
+                    'colors'    : ['black', 'white', GALLAUDET_BLUE,
+                                    GALLAUDET_BUFF, 'LightSteelBlue',
+                                    'LightGoldenRodYellow','LightSkyBlue',
+                                    'LightPink','LightGreen','LightSalmon'],
+                    'font'      : 12,
+                    'title'     : 14,
+                    'axes'      : 12,
+                    'ticklabel' : 10,
+                    'minsize'   : 6,
+                    'linewidth' : 1,
+                    'minwidth'  : 0.5},
+                'slides_dark_bg': 
+                {   'aspect'    : 1.6,
+                    'colors'    : ['white', 'black', GALLAUDET_BUFF,
+                                    GALLAUDET_BLUE, 'LightSteelBlue',
+                                    'LightGoldenRodYellow','LightSkyBlue',
+                                    'LightPink','LightGreen','LightSalmon'],
+                    'font'      : 12,
+                    'title'     : 14,
+                    'axes'      : 12,
+                    'ticklabel' : 10,
+                    'minsize'   : 6,
+                    'linewidth' : 1,
+                    'minwidth'  : 0.5}}
+    
+def _set_plot_params(use='print', scaling=1.0):
+    '''
+        This routine sets all the plot parameters globally, which takes effect
+        with the next plot. Setting these parameters globally using 
+        matplotlib's rcParams simplifies the downstream charting code because
+        it is no longer necessary specify the size and color parameters
+        in every charting command.
+        
+        In the future, consider: 
+            (a) using matplotlib.rc_params_from_file, and setting up a 
+                different file for each use.
+            (b) using the same rcParams name for each dict field, then
+                the rcparams can just be loaded iteratively, although
+                this would complicate scaling. Scaling would need to be done
+                by reading the appropriately scalable rcParams, scaling,
+                then rewriting (which could also be done iteratively).
+    '''
+    d = PLOT_PARAMS[use]
+    matplotlib.rc('font',  size=max(d['font']*scaling, d['minsize']))
+    #matplotlib.rc('figure',titlesize=d['title']*scaling)
+    matplotlib.rc('font',  size=max(d['font']*scaling, d['minsize']))
+    matplotlib.rc('text',  color=d['colors'][0],
+                           usetex=False)
+    matplotlib.rc('axes',  titlesize=max(d['title']*scaling, d['minsize']),
+                           labelsize=max(d['axes']*scaling, d['minsize']),
+                           labelcolor=d['colors'][0],
+                           linewidth=max(d['linewidth']*scaling, d['minwidth']),
+                           edgecolor='#cccccc')                           
+    matplotlib.rc('xtick', labelsize=max(d['ticklabel']*scaling, d['minsize']),
+                           color=d['colors'][0])
+    matplotlib.rc('ytick', labelsize=max(d['ticklabel']*scaling, d['minsize']),
+                           color=d['colors'][0])
+    matplotlib.rc('lines', linewidth = max(d['linewidth']*scaling, d['minwidth']),
+                           color=d['colors'][0])
+    matplotlib.rc('figure.subplot', wspace=0.3,
+                                    hspace=0.3)
+    return d['colors']
 
-def _set_pen_color(background):
-    if background == 'black':
-        pen_color = 'white'
-    else:
-        pen_color = 'black'
-    matplotlib.rc ('font',size=16)
-#   matplotlib.rc('text', usetex=True)
-    matplotlib.rc ('axes',titlesize='large', labelsize='large', edgecolor='#cccccc')
-    matplotlib.rc ('xtick',labelsize='medium',color=pen_color)
-    matplotlib.rc ('ytick',labelsize='medium',color=pen_color)
-    return pen_color
-
-
-def contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None,
-                 titlesize=20, labelsize=20, ticklabelsize=16, scaling=1,
-                 background='white'):
+def contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None, 
+                            use='print', scaling=1.0):
     '''
         Produces a type of line chart, where for each x, the median value is 
         shown as a line, and the area between the 5% and 95% CI are shaded.
@@ -170,46 +265,37 @@ def contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None,
             Yt              an array of y tuples (95%, median, 5%)
             xlabel          x axis label string
             ylabel          y axis label string
-            title           axis title
-            titlesize       font size (in points) for titles
-            labelsize       font size (in points) for x and y labels
-            ticklabelsize   font size (in points) for xtick and ytick labels
-            scaling         a float which scales the graph, including line widths
-                            and all font sizes.
+            use         determines the font size and line width according
+                            to the global PLOT_PARAMS dict.
     '''
-    
-    pen_color = _set_pen_color(background)
+    _set_plot_params(use, scaling)
     # unpack Y tuple
     Y_uppers = [t[0] for t in Yt]
     Y_medians = [t[1] for t in Yt]
     Y_lowers = [t[2] for t in Yt]
     ax.set_xlim(min(X),max(X))
     if title is not None:
-        ax.set_title(title, fontsize=titlesize*scaling, color=pen_color)
+        ax.set_title(title)
     if xlabel is not None:
-        ax.set_xlabel(xlabel, fontsize=labelsize*scaling, color=pen_color)
+        ax.set_xlabel(xlabel)
     if ylabel is not None:
-        ax.set_ylabel(ylabel, fontsize=labelsize*scaling, color=pen_color)
+        ax.set_ylabel(ylabel)
     ax.fill_between(X, Y_uppers, Y_lowers, color=GALLAUDET_BUFF)
     ax.text(max(X)*1.02, max(Y_uppers), '{:.2f}'.format(Y_uppers[-1]), 
-            va='bottom', ha='left', fontsize=ticklabelsize*scaling, color=pen_color)
+            va='bottom', ha='left')
     ax.plot(X, Y_medians, color=GALLAUDET_BLUE, lw=3*scaling)
     ax.text(max(X)*1.02, max(Y_medians), '{:.2f}'.format(Y_medians[-1]), 
-            va='bottom', ha='left', fontsize=ticklabelsize*scaling, color=pen_color)
+            va='bottom', ha='left')
     ax.text(max(X)*1.02, min(Y_lowers), '{:.2f}'.format(Y_lowers[-1]), 
-            va='top', ha='left', fontsize=ticklabelsize*scaling, color=pen_color)
-    # turn off gridlines
-    ax.grid(False)
-    # set tick label sizes
-    for label in ax.get_xticklabels() + ax.get_yticklabels():
-        label.set_fontsize(ticklabelsize*scaling) 
-    return ax   
+            va='top', ha='left')
+    
+    ax.grid(False)      # turns off gridlines
+    return ax
     
 
 def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[], 
                                title=None, xlabel=None, ylabel=None,
-                               titlesize=36, labelsize=36, ticklabelsize=28,
-                               background='white'):
+                               use='print'):
     '''
         Produces a type of line chart, where for each x, the median value is 
         shown as a line, and the area between the 5% and 95% CI are shaded.
@@ -254,28 +340,24 @@ def write_summary_contour_plot(filename, Xarr, Yarr, nrows, ncols, titles=[],
                             bottom=.5-ylim,
                             top=.5+ylim)
 
-    pen_color = _set_pen_color(background)
+    _set_plot_params(use, scaling=1./nrows)
     plt.clf()
     fig, axarr = plt.subplots(nrows, ncols, sharex=True, sharey=True)
-    fig.suptitle(title, fontsize=titlesize, color=pen_color)
+    fig.suptitle(title)
     for ax, X, Y, title in zip(axarr.flat, Xarr, Yarr, titles):
         ax = contour_plot(ax, X, Y,
                           xlabel=xlabel,
                           ylabel=ylabel,
                           title=title,
-                          titlesize=titlesize,
-                          labelsize=labelsize,
-                          ticklabelsize=ticklabelsize,
-                          scaling=1./len(axarr.flat),
-                          background=background)
+                          use=use,
+                          scaling=1./nrows)
     adjustFigAspect(fig)
-    fig.tight_layout()
     plt.savefig(filename, transparent=True)
+    plt.close()
 
 
 def write_contour_plot(filename, X, Y, title=None, xlabel=None, ylabel=None,
-                       titlesize=24, labelsize=20, ticklabelsize=14,
-                       background='white'):
+                       use='print'):
     '''
         Produces a type of line chart, where for each x, the median value is 
         shown as a line, and the area between the 5% and 95% CI are shaded.
@@ -288,28 +370,22 @@ def write_contour_plot(filename, X, Y, title=None, xlabel=None, ylabel=None,
             xlabel          x axis label string
             ylabel          y axis label string
             title           axis title
-            titlesize       font size (in points) for titles
-            labelsize       font size (in points) for x and y labels
-            ticklabelsize   font size (in points) for xtick and ytick labels
-            scaling         a float which scales the graph, including font
-                            sizes and line widths.
             
         Doesn't return anything
         Writes a PDF file to filename.
     '''
-    pen_color = _set_pen_color(background)
+    _set_plot_params(use)
     plt.clf()
     fig = plt.figure()
     if title is not None:
-        plt.title(title, fontsize=titlesize, color=pen_color)
+        plt.title(title)
     ax = fig.add_subplot(111)
     ax = contour_plot(ax, X, Y, 
-                      xlabel=xlabel, ylabel=ylabel,
-                      labelsize=labelsize,
-                      ticklabelsize=ticklabelsize,
-                      background=background)
-    fig.tight_layout()
+                      xlabel=xlabel,
+                      ylabel=ylabel,
+                      use=use)
     plt.savefig(filename, transparent=True)
+    plt.close()
 
 
 if __name__ == '__main__':
@@ -342,7 +418,7 @@ if __name__ == '__main__':
     if not args.graph_only:
         for experiment in EXPERIMENTS:
             # This quick sample run obtains the headers for the data file.
-            sample_run = varyAssort(**experiment)
+            sample_run = simuAssortativeMatingWithFitness(**experiment)
             sample_run['header'][0] = '# ' + sample_run['header'][0]
             headers =  [['# experiment date = {timestamp}' \
                          ''.format(timestamp=time.strftime('%Y %b %d'))],
@@ -353,8 +429,10 @@ if __name__ == '__main__':
                          ''.format(**experiment)],
                         ['# aa_homogamy = {aa_homogamy}'\
                          ''.format(**experiment)],
-                        ['# mutation allele start freq = {A_FREQ}'\
-                         ''.format(A_FREQ=A_FREQ)],
+                        ['# a_freq = {a_freq}'\
+                         ''.format(**experiment)],
+                        ['# gen = {gen}'\
+                         ''.format(**experiment)],
                         sample_run['header']]
             fn = os.path.join(args.path, 
                               'pop{constant_pop_size}_fitness{aa_fitness}'\
@@ -374,9 +452,9 @@ if __name__ == '__main__':
             def worker():
                 '''
                     The worker function exists as a convenient way of passing
-                    varyAssort with its parameters to the multiprocessing pool.
+                    simuAssortativeMatingWithFitness with its parameters to the multiprocessing pool.
                 '''
-                return varyAssort(**experiment)
+                return simuAssortativeMatingWithFitness(**experiment)
                 
             proposals = 0
             mp_chunk_size = cpu_count = multiprocessing.cpu_count()
@@ -458,19 +536,19 @@ if __name__ == '__main__':
         titles.append(title)
         
         # Create individual contour charts
-        for background in ['white','black']:
-            new_ext = background + '.pdf'
+        for use in ['print','slides_light_bg', 'slides_dark_bg']:
+            new_ext = '.{}.pdf'.format(use)
             filename = os.path.join(args.path, file.replace('.tsv', new_ext))
             print "Saving chart to '{}'.".format(filename)
             write_contour_plot(filename, X, a_freqs,
                                title=title,
-                               xlabel='Generation',
-                               ylabel='Allele frequency',
-                               background=background)
+                               xlabel='Generations',
+                               ylabel='Recessive Allele Frequency',
+                               use=use)
     
     # Create summary contour charts
-    for background in ['white','black']:
-        bn = 'summary.{}.pdf'.format(background)
+    for use in ['print','slides_light_bg', 'slides_dark_bg']:
+        bn = 'summary.{}.pdf'.format(use)
         filename = os.path.join(args.path, bn)
         print "Saving summary chart to '{}'.".format(filename)
         write_summary_contour_plot(filename, 
@@ -480,6 +558,6 @@ if __name__ == '__main__':
                                    ncols=2,
                                    title='',
                                    titles=titles,
-                                   xlabel='Generation',
-                                   ylabel='Allele frequency',
-                                   background = background)
+                                   xlabel='Generations',
+                                   ylabel='Recessive Allele Frequency',
+                                   use = use)
