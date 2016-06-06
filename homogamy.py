@@ -169,8 +169,8 @@ from matplotlib import pyplot as plt, lines
 
 #see: http://matplotlib.sourceforge.net/users/customizing.html
 ASPECT_RATIO = (16,9)
-GALLAUDET_BLUE = '#003b65'
-GALLAUDET_BUFF = '#e5d19e'
+GALLAUDET_BLUE = '#00457c'
+GALLAUDET_BUFF = '#e8d4a2'
 PLOT_PARAMS = { 'print': 
                 {   'aspect'    : 1.0,
                     'colors'    : ['black', 'white', GALLAUDET_BLUE,
@@ -190,11 +190,11 @@ PLOT_PARAMS = { 'print':
                                     GALLAUDET_BUFF, 'LightSteelBlue',
                                     'LightGoldenRodYellow','LightSkyBlue',
                                     'LightPink','LightGreen','LightSalmon'],
-                    'font'      : 12,
-                    'title'     : 14,
-                    'axes'      : 12,
-                    'ticklabel' : 10,
-                    'minsize'   : 6,
+                    'font'      : 20,
+                    'title'     : 22,
+                    'axes'      : 20,
+                    'ticklabel' : 20,
+                    'minsize'   : 8,
                     'linewidth' : 1,
                     'minwidth'  : 0.5},
                 'slides_dark_bg': 
@@ -203,11 +203,11 @@ PLOT_PARAMS = { 'print':
                                     GALLAUDET_BLUE, 'LightSteelBlue',
                                     'LightGoldenRodYellow','LightSkyBlue',
                                     'LightPink','LightGreen','LightSalmon'],
-                    'font'      : 12,
-                    'title'     : 14,
-                    'axes'      : 12,
-                    'ticklabel' : 10,
-                    'minsize'   : 6,
+                    'font'      : 20,
+                    'title'     : 22,
+                    'axes'      : 20,
+                    'ticklabel' : 20,
+                    'minsize'   : 8,
                     'linewidth' : 1,
                     'minwidth'  : 0.5}}
     
@@ -302,6 +302,11 @@ def deprecated_contour_plot(ax, X, Yt, title=None, xlabel=None, ylabel=None,
  
 def density_plot(ax, X, Ya, title=None, xlabel=None, ylabel=None, 
                             use='print', gradients=32, scaling=1.0):
+    # The algorithm is horribly inefficient and confusing to read, but it works 
+    # very well. I have found that a smaller number of gradient steps seems to 
+    # give better results, and this also makes the algorithm run faster; 
+    # therefore it may not be worth the effort to re-write the algorithm.
+    # Currently it takes about 5 seconds to make a plot.
     '''
         Produces a density plot.
         The median values and 95% credible intervals are also represented 
