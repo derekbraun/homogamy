@@ -17,19 +17,23 @@
     SimuPOP resources:
         Documentation: http://simupop.sourceforge.net/manual_svn/index.html
         User's guide:  http://simupop.sourceforge.net/manual_svn/build/userGuide.html
-        
-        
 '''
 
-#   Needed changes:
-#   1.  We need to be able to run this simulation with a smaller allele
-#       frequency without running out of males or females.
-#
-#       To do this, change the Mating Scheme to generate more than 1 offspring 
-#       per mating, which is not realistic anyway. Refer to Arnos paper on
-#       fitness for what this number of offspring should be.
-#
-#       Bo Peng suggested starting with:
+# INSTALLATION:
+# 
+# 1.  Install this code from github.
+# 2.  Install the major dependencies. Directions for OSX are on my blog:
+#     https://derekbraun.wordpress.com/
+# 3.  Install simuPOP
+# 
+# 
+# TO-DO LIST
+#         
+# 1.  Define an Experiment class that manages experimental data and metadata.
+#     Give the class methods for reading and writing data.
+#     This should make code easier to follow.
+#     
+# 2.  simuPOP obviously does not work. Bo Peng suggested starting with:
 #       matingScheme = HeteroMating([HomoMating(subPops=[(0,1)], weight=aa_homogamy),
 #                                    HomoMating(weight=1-aa_homogamy)])
 #
@@ -37,10 +41,14 @@
 #       suggestion did not work "out of the box" because additional
 #       parameters need to be specified. From looking at the _reference manual_
 #       This looked easy enough and would not take long, but I am currently 
-#       in a time crunch for my presentation at NIDCD.  
-#
-#   2.  The density plot has a *horribly* inefficient and confusingly written
-#       algorithm, although it ultimately works well.
+#       in a time crunch for my presentation at NIDCD. 
+# 
+# 3.  Change plotting (and data collection) to show the freq of AA, Aa, aa,
+#     A, and a; and calculate F. Plot F on one of the tables.
+# 
+# 5.  Generate and output a final table that gives final medians and HPDs
+#     for AA, Aa, aa, A and a.
+
 
 DEBUG_MODE = True
 
