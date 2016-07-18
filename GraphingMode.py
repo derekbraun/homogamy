@@ -87,93 +87,6 @@ def _set_plot_params(use='print', scaling=1.0):
 	return d['colors']
 
 
-def simple_plot(ax, X, Ylst, title=None, xlabel=None, ylabel=None, use='print',
-				gradients=32, scaling=1.0):
-	# Removal of deprecated contour plot and addition of simple plot.
-	_set_plot_params(use, scaling)
-	Y_recessive = []
-	Y_carrier = []
-	Y_dominant = []
-	IndList = []
-	
-	ax.set_xlim(min(X),max(X))
-	if title is not None:
-		ax.set_title(title)
-	if xlabel is not None:
-		ax.set_xlabel(xlabel)
-	if ylabel is not None:
-		ax.set_ylabel(ylabel)
-	
-	if len(Ylst) == 2:
-		Y1 = Ylst[0]
-		Y2 = Ylst[1]
-		for Y in Y1:
-			Y = list(Y)
-			Y = map(float, Y)
-			Y.sort()
-			Y = numpy.median(Y)
-			Y_recessive.append(numpy.ceil(Y))
-		for Y in Y2:
-			Y = list(Y)
-			Y = map(float, Y)
-			Y.sort()
-			Y = numpy.median(Y)
-			Y_carrier.append(numpy.ceil(Y))
-		ax.plot(X, Y_recessive, color=GALLAUDET_BLUE)
-		ax.plot(X, Y_carrier, color='LightGreen')
-		
-	elif len(Ylst) == 1:
-		Y1 = Ylst[0]
-		for Y in Y1:
-			Y = list(Y)
-			Y = map(float, Y)
-			Y.sort()
-			Y = numpy.median(Y)
-			Y_dominant.append(numpy.ceil(Y))
-		ax.plot(X, Y_dominant, color=GALLAUDET_BLUE)
-		
-	elif len(Ylst) == 3:
-		Y1 = Ylst[0]
-		Y2 = Ylst[1]
-		Y3 = Ylst[2]
-		for Y in Y1:
-			Y = list(Y)
-			Y = map(float, Y)
-			Y.sort()
-			Y = numpy.median(Y)
-			Y_dominant.append(Y)
-		for Y in Y2:
-			Y = list(Y)
-			Y = map(float, Y)
-			Y.sort()
-			Y = numpy.median(Y)
-			Y_carrier.append(Y)
-		for Y in Y3:
-			Y = list(Y)
-			Y = map(float, Y)
-			Y.sort()
-			Y = numpy.median(Y)
-			Y_recessive.append(Y)
-		#ax.plot(X, Y_dominant, color='LightSalmon')
-		ax.plot(X, Y_recessive, color=GALLAUDET_BLUE)
-		ax.plot(X, Y_carrier, color='LightGreen')
-	
-	else:
-		for Ya in Ylst:
-			for Y in Ya:
-				IndList.append(Y)
-				Y = list(IndList)
-			Y = map(float, Y)
-			Y.sort()
-			Y = numpy.median(Y)
-			Y_dominant.append(numpy.ceil(Y))
-		ax.plot(X, Y_dominant, color=GALLAUDET_BLUE)
-			
-		
-	ax.grid(False)
-	return ax 
-		
-
 def density_plot(ax, X, Ya, title=None, xlabel=None, ylabel=None, 
 							use='print', gradients=32, scaling=1.0):
 	# The algorithm is horribly inefficient and confusing to read, but it works 
@@ -252,6 +165,27 @@ def density_plot(ax, X, Ya, title=None, xlabel=None, ylabel=None,
     ax.grid(False)  
     return ax
     
+def adjustFigAspect(fig, aspect=1.5):
+        '''
+            Adjusts the whitespace around a figure so that each subplot 
+            achieves the desired aspect ratio (square by default).
+            Accepts a matplotlib figure object.
+            Doesn't need to return anything because it directly modifies the 
+            figure object.
+        '''
+        xsize, ysize = fig.get_size_inches()
+        minsize = min(xsize, ysize)
+        xlim = .4*minsize/xsize
+        ylim = .4*minsize/ysize
+        if aspect < 1:
+            xlim *= aspect
+        else:
+            ylim /= aspect
+        fig.subplots_adjust(left=.4-xlim,
+                            right=.6+xlim,
+                            bottom=.4-ylim,
+                            top=.6+ylim)
+    
 def write_summary_density_plot(filename, Xarr, Yarr, nrows, ncols, multiplot_titles=[], 
                                title=None, xlabel=None, ylabel=None,
                                use='print'):
@@ -277,124 +211,38 @@ def write_summary_density_plot(filename, Xarr, Yarr, nrows, ncols, multiplot_tit
         Examples for setting up multiple charts on shared axes are at:
         http://matplotlib.org/examples/pylab_examples/subplots_demo.html
     '''
-    def adjustFigAspect(fig, aspect=1.5):
-        '''
-            Adjusts the whitespace around a figure so that each subplot 
-            achieves the desired aspect ratio (square by default).
-            Accepts a matplotlib figure object.
-            Doesn't need to return anything because it directly modifies the 
-            figure object.
-        '''
-        xsize, ysize = fig.get_size_inches()
-        minsize = min(xsize, ysize)
-        xlim = .4*minsize/xsize
-        ylim = .4*minsize/ysize
-        if aspect < 1:
-            xlim *= aspect
-        else:
-            ylim /= aspect
-        fig.subplots_adjust(left=.5-xlim,
-                            right=.5+xlim,
-                            bottom=.5-ylim,
-                            top=.5+ylim)
 
     _set_plot_params(use, scaling=1./nrows)
     plt.clf()
     fig, axarr = plt.subplots(nrows, ncols, sharex=True, sharey=True)
     fig.suptitle(title)
-    for ax, X, Ya, title in zip(axarr.flat, Xarr, Yarr, multiplot_titles):
-        ax = density_plot(ax, X, Ya,
-                          xlabel=xlabel,
-                          ylabel=ylabel,
-                          title=title,
-                          use=use,
-                          scaling=1./nrows)
-    adjustFigAspect(fig)
-    plt.savefig(filename, transparent=True)
-    plt.close()
     
-def write_summary_simple_plot(filename, Xarr, Yarr, nrows, ncols, multiplot_titles=[], 
-                               title=None, xlabel=None, ylabel=None,
-                               use='print'):
-    def adjustFigAspect(fig, aspect=1.5):
-        '''
-            Adjusts the whitespace around a figure so that each subplot 
-            achieves the desired aspect ratio (square by default).
-            Accepts a matplotlib figure object.
-            Doesn't need to return anything because it directly modifies the 
-            figure object.
-        '''
-        xsize, ysize = fig.get_size_inches()
-        minsize = min(xsize, ysize)
-        xlim = .4*minsize/xsize
-        ylim = .4*minsize/ysize
-        if aspect < 1:
-            xlim *= aspect
-        else:
-            ylim /= aspect
-        fig.subplots_adjust(left=.5-xlim,
-                            right=.5+xlim,
-                            bottom=.5-ylim,
-                            top=.5+ylim)
-
-    _set_plot_params(use, scaling=1./nrows)
-    plt.clf()
-    fig, axarr = plt.subplots(nrows, ncols, sharex=True, sharey=True)
-    fig.suptitle(title)
-
-    if len(Yarr) == 8:
-    	count1 = 0
-    	count2 = 4
+    if multiplot_titles[0] == 'Change of Allele "a" over Time':
+    	fig, axarr = plt.subplots(nrows, ncols, sharex=True, sharey=False)
     	for ax, X, Ya, title in zip(axarr.flat, Xarr, Yarr, multiplot_titles):
-    		Ylst = Yarr[count1], Yarr[count2]
-    		ax = simple_plot(ax, X, Ylst,
-    					xlabel=xlabel,
-    					ylabel=ylabel,
-    					title=title,
-    					use=use,
-    					scaling=1./nrows)
-    		count1+=1
-    		count2+=1
-    		
-    elif len(Yarr) == 12:
-    	count1 = 0
-    	count2 = 4
-    	count3 = 8
-    	for ax, X, Ya, title in zip(axarr.flat, Xarr, Yarr, multiplot_titles):
-    		Ylst = Yarr[count1], Yarr[count2], Yarr[count3]
-    		ax = simple_plot(ax, X, Ylst,
-    					xlabel=xlabel,
-    					ylabel=ylabel,
-    					title=title,
-    					use=use,
-    					scaling=1./nrows)
-    		count1+=1
-    		count2+=1
-    		count3+=1
-    		
+        	ax = density_plot(ax, X, Ya,
+            	              xlabel=xlabel,
+                	          ylabel=ylabel,
+                    	      title=title,
+                        	  use=use,
+                          	  scaling=1./nrows)
+        axarr[0,0].set_ylabel('a',rotation=0)
+        axarr[0,1].set_ylabel('AA',rotation=0)
+        axarr[1,0].set_ylabel('Aa',rotation=0)
+        axarr[1,1].set_ylabel('aa',rotation=0)
+        fig.suptitle(multiplot_titles[-1], fontsize=20, fontweight='bold')
+    
     else:
     	for ax, X, Ya, title in zip(axarr.flat, Xarr, Yarr, multiplot_titles):
-    		ax = simple_plot(ax, X, Ya,
-    						xlabel=xlabel,
-    						ylabel=ylabel,
-    						title=title,
-    						use=use,
-    						scaling=1./nrows)
+        	ax = density_plot(ax, X, Ya,
+                          	xlabel=xlabel,
+                          	ylabel=ylabel,
+                          	title=title,
+                          	use=use,
+                          	scaling=1./nrows)
     adjustFigAspect(fig)
     plt.savefig(filename, transparent=True)
     plt.close()
-    
-def write_simple_plot(filename, X, Ylst, title=None, xlabel=None, ylabel=None, use='print'):
-    _set_plot_params(use)
-    plt.clf()
-    fig = plt.figure()
-    if title is not None:
-        plt.title(title)
-    ax = fig.add_subplot(111)
-    ax = simple_plot(ax, X, Ylst, xlabel=xlabel, ylabel=ylabel, use=use)
-    plt.savefig(filename, transparent=True)
-    plt.close()
-    
 
 def write_density_plot(filename, X, Y, title=None, xlabel=None, ylabel=None, use='print'):
     _set_plot_params(use)

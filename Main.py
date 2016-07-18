@@ -13,27 +13,17 @@
     the road, we purposely wrote this code to be as self-sufficient as 
     possible. We have contained all our code in one script and avoided
     spilling over to external modules wherever reasonable.
-    
-    SimuPOP resources:
-        Documentation: http://simupop.sourceforge.net/manual_svn/index.html
-        User's guide:  http://simupop.sourceforge.net/manual_svn/build/userGuide.html
 '''
 
-# INSTALLATION:
-# 
-# 1.  Install this code from github.
-# 2.  Install the major dependencies. Directions for OSX are on my blog:
-#     https://derekbraun.wordpress.com/
-# 3.  Install simuPOP
-# 
-# 
-# TO-DO LIST
-#         
-# 1.  Define an Experiment class that manages experimental data and metadata.
-#     Give the class methods for reading and writing data.
-#     This should make code easier to follow.
-#     
-# 2.  simuPOP obviously does not work. Bo Peng suggested starting with:
+#   Needed changes:
+#   1.  We need to be able to run this simulation with a smaller allele
+#       frequency without running out of males or females.
+#
+#       To do this, change the Mating Scheme to generate more than 1 offspring 
+#       per mating, which is not realistic anyway. Refer to Arnos paper on
+#       fitness for what this number of offspring should be.
+#
+#       Bo Peng suggested starting with:
 #       matingScheme = HeteroMating([HomoMating(subPops=[(0,1)], weight=aa_homogamy),
 #                                    HomoMating(weight=1-aa_homogamy)])
 #
@@ -41,62 +31,60 @@
 #       suggestion did not work "out of the box" because additional
 #       parameters need to be specified. From looking at the _reference manual_
 #       This looked easy enough and would not take long, but I am currently 
-#       in a time crunch for my presentation at NIDCD. 
-# 
-# 3.  Change plotting (and data collection) to show the freq of AA, Aa, aa,
-#     A, and a; and calculate F. Plot F on one of the tables.
-# 
-# 5.  Generate and output a final table that gives final medians and HPDs
-#     for AA, Aa, aa, A and a.
+#       in a time crunch for my presentation at NIDCD.  
+#
+#   2.  The density plot has a *horribly* inefficient and confusingly written
+#       algorithm, although it ultimately works well.
 
-
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 import sys
+import traceback
 import os                      # Removed duplicate (import time).
 import time
 import random
 import argparse
 import shutil
 import csv
-import multiprocessing
 import simuOpt
 
 if DEBUG_MODE:
     PROPOSALS = 1
 else:
-    PROPOSALS = 10000
+    PROPOSALS = 1000
     simuOpt.setOptions(optimized=True, numThreads=0, quiet=True)
     
 import GraphingMode as gm       # Additional imports for code stability.
 import simuPOP as sim
 import numpy as np
+                                # Removal of Print
 A_FREQ = 0.01304                # Able to execute with low frequencies as of now.
-GEN = 40
+
+GEN = 70
 EXPERIMENTS = [ # small pop, equal fitness, random mating
                 {'constant_pop_size': 10000,      
                 'aa_fitness'        : 1.0,
                 'aa_homogamy'       : 0.0,
                 'a_freq'            : A_FREQ,
-                'gen'               : GEN}]
+                'gen'               : GEN},
                 # small pop, equal fitness, assortative mating
-#                {'constant_pop_size' : 10000,     
-#                 'aa_fitness'        : 1.0,
-#                 'aa_homogamy'       : 0.9,
-#                 'a_freq'            : A_FREQ,
-#                 'gen'               : GEN},
-#                 # small pop, aa homozygotes have 2x fitness, random mating
-#                {'constant_pop_size' : 10000,      
-#                 'aa_fitness'        : 1.2,
-#                 'aa_homogamy'       : 0.0,
-#                 'a_freq'            : A_FREQ,
-#                 'gen'               : GEN},
-#                 # small pop, aa homozygotes have 2x fitness, assortative mating
-#                {'constant_pop_size' : 10000,      
-#                 'aa_fitness'        : 1.2,
-#                 'aa_homogamy'       : 0.9,
-#                 'a_freq'            : A_FREQ,
-#                 'gen'               : GEN}]
+               {'constant_pop_size' : 10000,     
+                'aa_fitness'        : 1.0,
+                'aa_homogamy'       : 0.9,
+                'a_freq'            : A_FREQ,
+                'gen'               : GEN},
+                # small pop, aa homozygotes have 2x fitness, random mating
+               {'constant_pop_size' : 10000,      
+                'aa_fitness'        : 2.0,
+                'aa_homogamy'       : 0.0,
+                'a_freq'            : A_FREQ,
+                'gen'               : GEN},
+                # small pop, aa homozygotes have 2x fitness, assortative mating
+               {'constant_pop_size' : 10000,      
+                'aa_fitness'        : 2.0,
+                'aa_homogamy'       : 0.9,
+                'a_freq'            : A_FREQ,
+                'gen'               : GEN}]
 
 def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq, 
                                     aa_fitness, aa_homogamy):
@@ -114,23 +102,20 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq,
         aa_size             size of the aa population
         A_freq              frequency of the A allele
         a_freq              frequency of the a allele
-    '''              
-    sim.setRNG(random.seed(sim.getRNG().seed()))
-    pop = sim.Population(constant_pop_size, loci=1, infoFields=['fitness'])
-    sim.initSex(pop)
-    pop.dvars().header = []
+    '''             
+    sim.setRNG(random.seed(sim.getRNG().seed()))    
+    pop = sim.Population(constant_pop_size, loci=[1], infoFields=['fitness'])
+    pop.dvars().header = [] 
     pop.dvars().row = []
-    vsp = sim.GenotypeSplitter(loci=1, loci=1, alleles=[[0,0,0,1],[1,1]])
-    pop.setVirtualSplitter(vsp)
+    pop.setVirtualSplitter(sim.GenotypeSplitter(loci=[0], alleles=[[0,0,0,1],[1,1]]))
     # Creates two virtual subpopulations needed in order to define a mating 
     # scheme: 
     #   Note: allele definitions are _unphased_ so (0,1) and (1,0) are equivalent
     #   alleles=[0,0,0,1] are individuals with 00 or 01 (AA/Aa)
     #   alleles=[1,1] are individuals with 11 (aa)
     pop.evolve(
-        initOps= [sim.InitSex(subPops=[(0,0)], maleProp=0.5),
-                  sim.InitSex(subPops=[(0,1)], maleProp=0.5),
-                  # assigns individuals randomly to be male or female.
+        initOps= [sim.InitSex(),
+                  # Assigns individuals randomly to be male or female.
                   # This can result in slightly more males or females, 
                   # which can cause errors if the wrong mating scheme is 
                   # selected.
@@ -151,42 +136,48 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq,
                   # having zero fitness and will be discarded during the mating
                   # scheme.
                   ],
-        matingScheme = sim.HeteroMating(matingSchemes=[sim.RandomMating(subPops=[(1,1)], weight=0-aa_homogamy),
-                sim.RandomMating(weight=aa_homogamy)]),
+        matingScheme = sim.HeteroMating([
+                            sim.HomoMating(chooser=sim.RandomParentsChooser(),
+                                generator=sim.OffspringGenerator(
+                                sim.MendelianGenoTransmitter()),
+                                subPops=[(1,1)], weight=aa_homogamy),
+                            sim.HomoMating(chooser=sim.RandomParentsChooser(),
+                                generator=sim.OffspringGenerator(
+                                sim.MendelianGenoTransmitter()),
+                                weight=1-aa_homogamy)]),
                     
         
         postOps = [sim.Stat(popSize=True, alleleFreq=[0], subPops=[(0,0),(0,1)], 
-                                genoFreq=[0]), 
+                                genoFreq=[0], inbreeding=0), 
                   # Addition of genoFreq to establish a parameter for counting individuals
                   # with a specific genotype. 
-                   sim.PyExec(r"header += ['gen','AA/Aa_Size','aa_size','A_freq',"\
-                                   "'a_freq', 'AA_Freq', 'aa_Freq', 'Aa_Freq', 'Aa_size',"\
-                                   "'AA_size', 'FAA', 'FAa', 'Faa']"),
+                   sim.PyExec(r"header += ['gen','A_freq', 'a_freq',"\
+                                   "'AA_Freq', 'Aa_Freq', 'aa_Freq',"\
+                                   "'AA_size', 'Aa_size', 'aa_size',"\
+                                   "'FAA_Inbreeding','FAa_Inbreeding','Faa_Inbreeding']"),
                   # Addition of Aa_size and AA_size. AA/Aa_Size has a capitalization
                   # to prevent error-reading mistakes.
-                   sim.PyExec(r"row += [gen, subPopSize[0], subPopSize[1],"\
-                                   "alleleFreq[0][0], alleleFreq[0][1],"\
-                                   "genoFreq[0][(0,0)], genoFreq[0][(1,1)],"\
+                   sim.PyExec(r"row += [gen, alleleFreq[0][0], alleleFreq[0][1],"\
+                                   "genoFreq[0][(0,0)],"\
                                    "genoFreq[0][(0,1)]+genoFreq[0][(1,0)],"\
-                                   "genoNum[0][(0,1)]+genoNum[0][(1,0)],"\
+                                   "genoFreq[0][(1,1)],"\
                                    "genoNum[0][(0,0)],"\
-                                   "((genoFreq[0][(0,0)]-(alleleFreq[0][0]*"\
-                                   "alleleFreq[0][0]))/(alleleFreq[0][0]-"\
-                                   "(alleleFreq[0][0]*alleleFreq[0][0]))),"\
-                                   "(1-((genoFreq[0][(0,1)]+genoFreq[0][(1,0)]))/"\
-                                   "(2*alleleFreq[0][0]*alleleFreq[0][1])),"\
-                                   "((genoFreq[0][(1,1)]-(alleleFreq[0][1]*"\
-                                   "alleleFreq[0][1]))/(alleleFreq[0][1]-"\
-                                   "(alleleFreq[0][1]*alleleFreq[0][1])))]")
+                                   "genoNum[0][(0,1)]+genoNum[0][(1,0)],"\
+                                   "genoNum[0][(1,1)],"\
+                                   "(genoFreq[0][(0,0)]-alleleFreq[0][0]**2)/"\
+                                   "(alleleFreq[0][0]-alleleFreq[0][0]**2),"\
+                                   "1-(genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/"\
+                                   "(2*alleleFreq[0][0]*alleleFreq[0][1]),"\
+                                   "(genoFreq[0][(1,1)]-alleleFreq[0][1]**2)/"\
+                                   "(alleleFreq[0][1]-alleleFreq[0][1]**2)]")
                   # Addition of genoNum[x][(x,x)] to count the number of individuals
                   # with that specific genotype.
                   # You can add frequencies and sizes through addition. There are two
                   # sizes for both Aa carriers (0,1) and (1,0). Adding these can be done
-                  # as seen above.                     
+                  # as seen above.      
                    ],
         gen = gen
     )
-    
     return {'header':pop.dvars().header, 'row':pop.dvars().row}
 
 
@@ -216,8 +207,7 @@ if __name__ == '__main__':
     else:
         print "Using folder '{}'.".format(args.path)
     source_fn = os.path.split(__file__)[-1].replace('.pyc','.py')
-    #shutil.copyfile(source_fn, os.path.join(args.path,source_fn))
-    print "Copied source code to '{}'.".format(args.path)
+    
     
     if not args.graph_only:
         for experiment in EXPERIMENTS:
@@ -252,38 +242,27 @@ if __name__ == '__main__':
                 o.writerows(headers)
                 f.close()
                 print "Created '{}'.".format(fn)
-                 
-            def worker():
-                '''
-                    The worker function exists as a convenient way of passing
-                    simuAssortativeMatingWithFitness with its parameters to the 
-                    multiprocessing pool.
-                '''
-                return simuAssortativeMatingWithFitness(**experiment)
                 
             proposals = 0
-            mp_chunk_size = cpu_count = multiprocessing.cpu_count()
-            pool = multiprocessing.Pool()
             while proposals < PROPOSALS:
                 start_time = time.time()
-                p = [pool.apply_async(worker) for i in range(mp_chunk_size)]
-                table = [item.get()['row'] for item in p]
+                try:
+                    row = [simuAssortativeMatingWithFitness(**experiment)]
+                except Exception as e:
+                    print('Gotcha')
+                    print(item)
+                    print(row)
+                    traceback.print_exc()
                 f = open(fn,'ab')
                 o = csv.writer(f, dialect=csv.excel_tab)
-                o.writerows(table)
+                o.writerow(row)
                 f.close()
-                proposals += mp_chunk_size
-                rate = mp_chunk_size*60./(time.time()-start_time)
+                proposals += 1
+                rate = 60./(time.time()-start_time)
                 print '{proposals:,} proposals completed ' \
-                      '({cpu_count} CPUs; {rate:,.0f} proposals/min)'\
+                      '({rate:,.0f} proposals/min)'\
                       ''.format(proposals=proposals,
-                                rate=rate,
-                                cpu_count=cpu_count)
-                # mp_chunk_size is dynamically adjusted based on actual
-                # execution speed such that file writes occur once per minute.
-                mp_chunk_size = int(rate - rate%cpu_count)
-                if proposals + mp_chunk_size > PROPOSALS:
-                    mp_chunk_size = PROPOSALS-proposals
+                                rate=rate)
 
     # This graphing routine retrieves data from all the saved tsv files in
     # the directory (which would have been generated by simulation runs).
@@ -298,10 +277,12 @@ if __name__ == '__main__':
     multiplot_a_freqs = []
     multiplot_AA_Individ = []   
     multiplot_Aa_Individ = []   
-    multiplot_aa_Individ = []   
+    multiplot_aa_Individ = []
+    multiplot_FAA = []
+    multiplot_FAa = []
+    multiplot_Faa = []   
     multiplot_params= []
     multiplot_titles = []
-    n = 0                       # To ensure graphs are not overwritten.
     for file in files:
         f = open(os.path.join(args.path, file),'r')
         rows = csv.reader(f, dialect=csv.excel_tab)
@@ -330,10 +311,7 @@ if __name__ == '__main__':
         for h, col in zip(headers, data):
             if 'gen' in h:
                 X.append(int(col[0]))
-        # Select a_freq
-        FAA = []
-        FAa = []
-        Faa = []
+                
         A_freqs = []
         a_freqs = []
         AA_Freqs = []
@@ -341,8 +319,10 @@ if __name__ == '__main__':
         aa_Freqs = []     
         AA_Individ = []      # Addition of individual and frequency lists.
         Aa_Individ = []
-        aa_Individ = [] 
-         
+        aa_Individ = []
+        FAA_Inbreeding = []
+        FAa_Inbreeding = []
+        Faa_Inbreeding = []
         
         # Expansion of searching executives in order to find additional
         # data needed to create prove and test hypothesises, etc.
@@ -371,15 +351,15 @@ if __name__ == '__main__':
             if 'aa_size' in h:
                 aa_Individ.append(col)
         for h, col in zip(headers, data):
-            if 'FAA' in h:
-                FAA.append(col)   
+            if 'FAA_Inbreeding' in h:
+                FAA_Inbreeding.append(col)
         for h, col in zip(headers, data):
-            if 'FAa' in h:
-                FAa.append(col)
+            if 'FAa_Inbreeding' in h:
+                FAa_Inbreeding.append(col)
         for h, col in zip(headers, data):
-            if 'Faa' in h:
-                Faa.append(col)     
-   
+            if 'Faa_Inbreeding' in h:
+                Faa_Inbreeding.append(col)
+                 
         multiplot_AA_Individ.append(AA_Individ)     # Additional Appending of individuals
         multiplot_Aa_Individ.append(Aa_Individ)     # and frequencies.
         multiplot_aa_Individ.append(aa_Individ)
@@ -388,6 +368,10 @@ if __name__ == '__main__':
         multiplot_AA_Freqs.append(AA_Freqs)
         multiplot_Aa_Freqs.append(Aa_Freqs)
         multiplot_aa_Freqs.append(aa_Freqs)
+        multiplot_FAA.append(FAA_Inbreeding)
+        multiplot_FAa.append(FAa_Inbreeding)
+        multiplot_Faa.append(Faa_Inbreeding)
+        
 
         title='N={:,}   '\
               'fitness={:.1f}    '\
@@ -395,77 +379,32 @@ if __name__ == '__main__':
               ''.format(int(params['constant_pop_size']),
                         float(params['aa_fitness']),
                         float(params['aa_homogamy']))
-        multiplot_titles.append(title)
-        
-        # Create individual (RECESSIVE ALLELE) contour charts
-        for use in ['print']:
-            n+=1
-            rn = 'RecessiveAlleleFrequency'+str(n)+'.{}.pdf'.format(use)
-            filename = os.path.join(args.path, rn)
-            print "Saving chart to '{}'.".format(filename)
-            gm.write_density_plot(filename, X, a_freqs,
-                               title=title,
-                               xlabel='Generations',
-                               ylabel='Recessive Allele Frequency',
-                               use=use)
-                               
-        # Create individual (CARRIER ALLELE) contour charts
-        for use in ['print']:
-            dn = 'CarrierGeneFrequency'+str(n)+'.{}.pdf'.format(use)
-            filename = os.path.join(args.path, dn)
-            print "Saving chart to '{}'.".format(filename)
-            gm.write_density_plot(filename, X, Aa_Freqs,
-                               title=title,
-                               xlabel='Generations',
-                               ylabel='Carrier Gene Frequency',
-                               use=use)
-                               
-        # Create individual (DOMINANT ALLELE) contour charts
-        for use in ['print']:
-            dn = 'DominantAlleleFrequency'+str(n)+'.{}.pdf'.format(use)
-            filename = os.path.join(args.path, dn)
-            print "Saving chart to '{}'.".format(filename)
-            gm.write_density_plot(filename, X, A_freqs,
-                               title=title,
-                               xlabel='Generations',
-                               ylabel='Dominant Allele Frequency',
-                               use=use)
-                               
-                               
-        # Create individual (RECESSIVE AND CARRIER INDIVIDUAL COMPARISON) contour charts
-        for use in ['print']:
-            fn = 'RVSCIndividualFrequency'+str(n)+'.{}.pdf'.format(use)
-            filename = os.path.join(args.path, fn)
-            print "Saving chart to '{}'.".format(filename)
-            Ylst = [aa_Individ, Aa_Individ]
-            gm.write_simple_plot(filename, X, Ylst,
-                                    title=title,
-                                    xlabel='Generations',
-                                    ylabel='R VS C Number of Individuals',
-                                    use=use)
-                                  
-                                    
-        # Create individual (DOMINANT INDIVIDUAL) contour charts
-        for use in ['print']:
-            fn = 'DominantIndividualFrequency'+str(n)+'.{}.pdf'.format(use)
-            filename = os.path.join(args.path, fn)
-            print "Saving chart to '{}'.".format(filename)
-            Ylst = [AA_Individ]
-            gm.write_simple_plot(filename, X, Ylst,
-                                    title=title,
-                                    xlabel='Generations',
-                                    ylabel='Dominant Number of Individuals',
-                                    use=use)
-                                
-       
-    # Create summary (RECESSIVE FREQUENCY) contour charts
+        multiplot_titles.append(title)  
+     
+    # Create summary (F OVER TIME) contour charts
+    for use in ['print']:
+        bn = 'summaryFOverTime.{}.pdf'.format(use)
+        filename = os.path.join(args.path, bn)
+        print "Saving summary chart to '{}'.".format(filename)
+        gm.write_summary_density_plot(filename, 
+                                   Xarr=[X for i in range(len(multiplot_FAA))],
+                                   Yarr=multiplot_FAA,
+                                   nrows=2,
+                                   ncols=2,
+                                   title='F Over Time',
+                                   multiplot_titles=multiplot_titles,
+                                   xlabel='Generations',
+                                   ylabel='F',
+                                   use = use)
+                                   
+     # Create summary (RECESSIVE FREQUENCY) contour charts
     for use in ['print']:
         bn = 'summaryRecessiveGeneFrequency.{}.pdf'.format(use)
         filename = os.path.join(args.path, bn)
         print "Saving summary chart to '{}'.".format(filename)
         gm.write_summary_density_plot(filename, 
-                                   Xarr=[X for i in range(len(multiplot_a_freqs))],
-                                   Yarr=multiplot_a_freqs,
+                                   Xarr=[X for i in range(len(multiplot_aa_Freqs))],
+                                   Yarr=multiplot_aa_Freqs,
                                    nrows=2,
                                    ncols=2,
                                    title='Comparison Between Recessive Gene Frequencies',
@@ -474,15 +413,30 @@ if __name__ == '__main__':
                                    ylabel='Recessive Gene Frequency',
                                    use = use)
                                    
-                                   
+    # Create summary (CARRIER FREQUENCY) contour charts
+    for use in ['print']:
+        bn = 'summaryCarrierGeneFrequency.{}.pdf'.format(use)
+        filename = os.path.join(args.path, bn)
+        print "Saving summary chart to '{}'.".format(filename)
+        gm.write_summary_density_plot(filename, 
+                                   Xarr=[X for i in range(len(multiplot_Aa_Freqs))],
+                                   Yarr=multiplot_Aa_Freqs,
+                                   nrows=2,
+                                   ncols=2,
+                                   title='Comparison Between Carrier Gene Frequencies',
+                                   multiplot_titles=multiplot_titles,
+                                   xlabel='Generations',
+                                   ylabel='Carrier Gene Frequency',
+                                   use = use)
+                                                
     # Create summary (DOMINANT FREQUENCY) contour charts
     for use in ['print']:
         bn1 = 'summaryDominantGeneFrequency.{}.pdf'.format(use)
         filename = os.path.join(args.path, bn1)
         print "Saving summary chart to '{}'.".format(filename)
         gm.write_summary_density_plot(filename, 
-                                   Xarr=[X for i in range(len(multiplot_A_freqs))],
-                                   Yarr=multiplot_A_freqs,
+                                   Xarr=[X for i in range(len(multiplot_AA_Freqs))],
+                                   Yarr=multiplot_AA_Freqs,
                                    nrows=2,
                                    ncols=2,
                                    title='Comparison Between Dominant Gene Frequencies',
@@ -490,58 +444,26 @@ if __name__ == '__main__':
                                    xlabel='Generations',
                                    ylabel='Dominant Gene Frequency',
                                    use = use)
-        
-        
-    # Create summary (DOMINANT INDIVIDUAL) contour charts
-    for use in ['print']:
-        bn1 = 'summaryDominantIndividuals.{}.pdf'.format(use)
-        filename = os.path.join(args.path, bn1)
-        print "Saving summary chart to '{}'.".format(filename)
-        gm.write_summary_simple_plot(filename, 
-                                   Xarr=[X for i in range(len(multiplot_AA_Individ))],
-                                   Yarr=multiplot_AA_Individ,
-                                   nrows=2,
-                                   ncols=2,
-                                   title='Comparison Between Dominant Individual Frequencies',
-                                   multiplot_titles=multiplot_titles,
-                                   xlabel='Generations',
-                                   ylabel='Dominant Number of Individuals',
-                                   use = use)
-                                
-    # Create summary (RECESSIVE AND CARRIER INDIVIDUAL COMPARISON) contour charts
-    for use in ['print']:
-        bn1 = 'summaryRecessiveAndCarrier.{}.pdf'.format(use)
-        filename = os.path.join(args.path, bn1)
-        print "Saving summary chart to '{}'.".format(filename)
-        Ya = [multiplot_Aa_Individ, multiplot_aa_Individ]
-        Ya = Ya[0]+Ya[1]
-        gm.write_summary_simple_plot(filename, 
-                                   Xarr=[X for i in range(len(multiplot_AA_Individ))],
-                                   Yarr=Ya,
-                                   nrows=2,
-                                   ncols=2,
-                                   title='Comparison Between R VS C Individual Frequencies',
-                                   multiplot_titles=multiplot_titles,
-                                   xlabel='Generations',
-                                   ylabel='R VS C Number of Individuals',
-                                   use = use)
-
-    # Create summary (DOMINANT/CARRIER/RECESSIVE FREQUENCY COMPARISON) contour charts
-    for use in ['print']:
-        bn1 = 'summaryDominant_Carrier_Recessive_Frequency_Comparison.{}.pdf'.format(use)
-        filename = os.path.join(args.path, bn1)
-        print "Saving summary chart to '{}'.".format(filename)
-        Ya = [multiplot_AA_Freqs, multiplot_Aa_Freqs, multiplot_aa_Freqs]
-        Ya = Ya[0]+Ya[1]+Ya[2]
-        gm.write_summary_simple_plot(filename, 
-                                   Xarr=[X for i in range(len(multiplot_AA_Individ))],
-                                   Yarr=Ya,
-                                   nrows=2,
-                                   ncols=2,
-                                   title='Comparison Between R VS C Genotype Frequencies',
-                                   multiplot_titles=multiplot_titles,
-                                   xlabel='Generations',
-                                   ylabel='R VS C Geneotype Frequency',
-                                   use = use)                              
-
                                    
+    # Create summary (TEST) contour charts
+    for use in ['print']:
+        bn1 = 'summaryFrequency_Comparison.{}.pdf'.format(use)
+        filename = os.path.join(args.path, bn1)
+        print "Saving summary chart to '{}'.".format(filename)
+        FAA = multiplot_FAA[1][-1]
+        FAA = map(float, FAA)
+        FAA.sort()
+        FAA = str(round(np.median(FAA),3))
+        titleH = 'Fitness 1.0, Homogamy 0.9, F '+FAA
+        Ya = [multiplot_a_freqs[1]]+[multiplot_AA_Freqs[1]]+[multiplot_Aa_Freqs[1]]+[multiplot_aa_Freqs[1]]
+        multiplot_titles = 'Change of Allele "a" over Time', 'Change of Genotype "AA" over Time', 'Change of Genotype "Aa" over Time', 'Change of Genotype "aa" over Time', 'Fitness 1.0, Homogamy 0.9, F '+FAA
+        gm.write_summary_density_plot(filename, 
+                                   Xarr=[X for i in range(len(multiplot_AA_Freqs))],
+                                   Yarr=Ya,
+                                   nrows=2,
+                                   ncols=2,
+                                   title=title,
+                                   multiplot_titles=multiplot_titles,
+                                   xlabel='Generations',
+                                   ylabel='Allele Frequency',
+                                   use = use)       
