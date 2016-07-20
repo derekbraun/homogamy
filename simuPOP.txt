@@ -1,0 +1,59 @@
+This is a list of simuPOP objects and methods that are particularly important
+for troubleshooting. 
+
+SimuPOP's variable interface is murky and really does not follow typical python
+conventions.
+
+
+pop.genotype(0)                 lists all genotypes. (why 0? look up.)
+                                Doesn't work for vsps.
+
+
+ACCESSING AND ITERATING THROUGH INDIVIDUALS
+pop.individual(n).sex()         either displays 1 or 2 to represent M/F
+pop.individual(n).genotype()    displays the genotype. Not sure in what format.
+pop.individuals                 an iterable to iterate through each
+                                individual in a population. Useful for
+                                either getting or setting attributes for
+                                each individual.
+                                e.g. for individual in pop.individuals
+
+
+ACCESSING ALLELE FREQUENCIES AND GENOTYPES DURING SIMULATIONS
+
+SimuPOP keeps variables in a dict called Population.vars() or as attributes
+of an object Population.dvars()
+
+Population.evolve() has an "operator" called Stat which calculates things and
+stores them in the local namespace under an unspecified name (argh!!!).
+But this name could be figured out by inspecting Population.vars().
+
+pop.dvars(sp).alleleFreq[locus][allele]     the allele frequency at
+                                            locus [locus] and allele [allele]
+                                            for subpopulation sp. Note that
+                                            these are dicts, not lists.
+                                            
+
+                             
+                                    
+
+            
+
+
+
+
+LOOKING AT THE BIG PICTURE; TROUBLESHOOTING
+
+sim.dump(pop)                   Outputs all data about all individuals
+                                in a semi-tabular format.
+
+describeEvolProcess(param)      Accepts the same parameters as Simulator.evolve.
+                                Outputs a description of how an evolutionary
+                                process will be executed.
+
+moduleInfo                      Outputs a dict with information about the
+                                version and build of simuPOP. See:
+                                http://simupop.sourceforge.net/manual_svn/build/refManual_ch2_sec6.html#function-describeevolprocess
+
+
+
