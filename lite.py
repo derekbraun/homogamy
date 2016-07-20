@@ -9,7 +9,7 @@
     
     We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
     
-    Lite code intended only for debugging.
+    Lite code for debugging.
 '''
 
 import sys
@@ -19,12 +19,10 @@ import random
 import argparse
 import shutil
 import csv
-import simuOpt
-
-    
+import simuOpt    
 import simuPOP as sim
 import numpy as np
-                                # Removal of Print
+
 #A_FREQ = 0.01304                # Able to execute with low frequencies as of now.
 A_FREQ = 0.5               
 
@@ -70,28 +68,37 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq,
         aa_size             size of the aa population
         A_freq              frequency of the A allele
         a_freq              frequency of the a allele
+        
+        Adopted from: http://simupop.sourceforge.net/Cookbook/AssortativeMating 
     '''             
     sim.setRNG(random.seed(sim.getRNG().seed()))    
     pop = sim.Population(constant_pop_size, loci=[1], infoFields=['fitness'])
     pop.dvars().header = [] 
     pop.dvars().row = []
-    pop.setVirtualSplitter(sim.GenotypeSplitter(loci=[0], alleles=[[0,0,0,1],[1,1]]))
-    # Creates two virtual subpopulations needed in order to define a mating 
+    
+    # Creates four virtual subpopulations needed in order to define a mating 
     # scheme: 
     #   Note: allele definitions are _unphased_ so (0,1) and (1,0) are equivalent
     #   alleles=[0,0,0,1] are individuals with 00 or 01 (AA/Aa)
     #   alleles=[1,1] are individuals with 11 (aa)
+    
+    vsp = sim.GenotypeSplitter(loci=0, 
+                               alleles=[[0,0,0,1],[1,1]])
+    pop.setVirtualSplitter(vsp)
+    print "numVirtualSubpop = " + str(pop.numVirtualSubPop())
+    for i in range(vsp.numVirtualSubPop()):
+        print vsp.name(i)
+    
     pop.evolve(
-        initOps= [sim.InitSex(),
+        initOps = [sim.InitSex(),
                   # Assigns individuals randomly to be male or female.
                   # This can result in slightly more males or females, 
                   # which can cause errors if the wrong mating scheme is 
                   # selected.
                   sim.InitGenotype(freq=[1-a_freq, a_freq])
                   ],
-        preOps = [sim.MapSelector(loci=[0], fitness={(0,0):1,
-                                                 (0,1):1,
-                                                 (1,1):aa_fitness})
+                  
+                  
                   # Assigns fitness values to individuals with different
                   # genotypes. This is stored in a field called 'fitness'
                   # by default, which is then applied by the appropriate
@@ -103,28 +110,49 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq,
                   # fitness or those with no assignment will be calculated as
                   # having zero fitness and will be discarded during the mating
                   # scheme.
+        preOps = [sim.MapSelector(loci=[0],
+                                  fitness={(0,0):1,
+                                           (0,1):1,
+                                           (1,1):aa_fitness})
                   ],
+#         matingScheme = sim.HeteroMating([
+#                             sim.HomoMating(chooser=sim.RandomParentsChooser(),
+#                                            generator=sim.OffspringGenerator(sim.MendelianGenoTransmitter()),
+#                                            subPops=[(0,1)], weight=aa_homogamy),
+#                             sim.HomoMating(chooser=sim.RandomParentsChooser(),
+#                                             generator=sim.OffspringGenerator(sim.MendelianGenoTransmitter()),
+#                                             weight=1-aa_homogamy)]),
+                                            
+                  # Assigns a mating scheme. HeteroMating applies a list of
+                  # mating schemes. RandomMating is a predefined
+                  # scheme that simulates diploid Wright-Fisher mating and
+                  # also supports natural selection (fitness). Most of
+                  # simuPOP's other mating schemes do not support natural 
+                  # selection.
+                  # If multiple mating schemes are applied to the same 
+                  # subpopulation, a weight can be given to each mating scheme
+                  # to determine how many offspring it will
+                  # produce. The default for all mating schemes are 0. In this
+                  # case, the number of offspring each mating scheme produces
+                  # is proportional to the size of its parental (virtual) 
+                  # subpopulation. If all weights are negative, the numbers of 
+                  # offspring are determined by the multiplication of the 
+                  # absolute values of the weights and their respective
+                  # parental (virtual) subpopulation sizes. If all weights are 
+                  # positive, the number of offspring produced by each mating 
+                  # scheme is proportional to these weights. Mating schemes 
+                  # with zero weight in this case will produce no offspring. 
+                  # If both negative and positive weights are present, 
+                  # negative weights are processed before positive ones.
         matingScheme = sim.HeteroMating([
-                            sim.HomoMating(chooser=sim.RandomParentsChooser(),
-                                generator=sim.OffspringGenerator(
-                                sim.MendelianGenoTransmitter()),
-                                subPops=[(1,1)], weight=aa_homogamy),
-                            sim.HomoMating(chooser=sim.RandomParentsChooser(),
-                                generator=sim.OffspringGenerator(
-                                sim.MendelianGenoTransmitter()),
-                                weight=1-aa_homogamy)]),
-                    
-        
-        postOps = [sim.Stat(popSize=True, alleleFreq=[0], subPops=[(0,0),(0,1)], 
-                                genoFreq=[0], inbreeding=0), 
-                  # Addition of genoFreq to establish a parameter for counting individuals
-                  # with a specific genotype. 
+                            sim.RandomMating(subPops=sim.ALL_AVAIL, weight=0),      # all
+                            sim.RandomMating(subPops=[(0,1)], weight=0)]),          # deaf subpop
+
+        postOps = [sim.Stat(alleleFreq=[0], genoFreq=[0]), 
                    sim.PyExec(r"header += ['gen','A', 'a',"\
                                    "'AA', 'Aa', 'aa',"\
                                    "'AA_size', 'Aa_size', 'aa_size',"\
                                    "'FAA','FAa','Faa']"),
-                  # Addition of Aa_size and AA_size. AA/Aa_Size has a capitalization
-                  # to prevent error-reading mistakes.
                    sim.PyExec(r"row += [gen, alleleFreq[0][0], alleleFreq[0][1],"\
                                    "genoFreq[0][(0,0)],"\
                                    "genoFreq[0][(0,1)]+genoFreq[0][(1,0)],"\
@@ -132,12 +160,13 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq,
                                    "genoNum[0][(0,0)],"\
                                    "genoNum[0][(0,1)]+genoNum[0][(1,0)],"\
                                    "genoNum[0][(1,1)],"\
-                                   "(genoFreq[0][(0,0)]-alleleFreq[0][0]**2)/"\
-                                   "(alleleFreq[0][0]-alleleFreq[0][0]**2),"\
-                                   "1-(genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/"\
-                                   "(2*alleleFreq[0][0]*alleleFreq[0][1]),"\
-                                   "(genoFreq[0][(1,1)]-alleleFreq[0][1]**2)/"\
-                                   "(alleleFreq[0][1]-alleleFreq[0][1]**2)]")
+                                   "0, 0, 0]")
+                                  # "(genoFreq[0][(0,0)]-alleleFreq[0][0]**2)/"\
+                                  # "(alleleFreq[0][0]-alleleFreq[0][0]**2),"\
+                                  # "1-(genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/"\
+                                  # "(2*alleleFreq[0][0]*alleleFreq[0][1]),"\
+                                  # "(genoFreq[0][(1,1)]-alleleFreq[0][1]**2)/"\
+                                  # "(alleleFreq[0][1]-alleleFreq[0][1]**2)]")
                   # Addition of genoNum[x][(x,x)] to count the number of individuals
                   # with that specific genotype.
                   # You can add frequencies and sizes through addition. There are two
