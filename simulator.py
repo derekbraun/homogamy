@@ -1,33 +1,13 @@
 #!/usr/local/bin/python -u
 # -*- coding: utf-8 -*-
+# We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-    Samir Jain, Eric Epstein, Derek Braun* (summer '14)
-    Trevor Klemp, Derek Braun* (summer '16)
-    Maggie Gray, Selman Jawed, Derek Braun* (summer '17)
-    *derek.braun@gallaudet.edu
+    Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek 
+    Braun* (*derek.braun@gallaudet.edu)
     
-    We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
-    
-    Last updated: 21-Jun-2017 by Derek to clean up code and divide
-    this project into four programs:
-    
-        simulator.py        Runs the simulations. Simulation parameters are
-                            stored as global variables.
-                            A new copy of simulator.py is needed
-                            for every set of simulation parameters.
-                            Outputs a results tsv file.
-                          
-        fileio.py           Creates classes for reading and writing 
-                            experimental data to/from a tsv file.
-                            
-        grapher.py          Accepts the name of a tsv data file as input.
-                            Produces graph(s) as output.
-                            
-        stats.py            *To be created by this summer's interns!
-                            Accepts the names of tsv data files as input
-                            Outputs the results of stats analyses comparing
-                            the data in these tsv files.
+    Simulation module.
+    Last updated: 23-Jun-2017 by Derek Braun
 '''
 
 
@@ -237,18 +217,18 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq,
     return {'headers':pop.dvars().headers, 'row':pop.dvars().row}
 
 
-# MAIN FUNCTION           
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__,
+                    formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('path',
                         help = 'results folder path. If the folder does not exist, '\
-                               'it will be created.',
+                               'it will be created',
                         nargs = '?',  # makes this argument optional
                         default = os.path.dirname(__file__))
     parser.add_argument('-o','--overwrite',action='store_true',
-                        help = 'overwrite old tsv files.')
+                        help = 'overwrite tsv file')
     parser.add_argument('-v','--verbose',action='store_true',
-                        help = 'also outputs the sample runs.')
+                        help = 'also outputs the sample run')
     args=parser.parse_args()
         
     if fileio.create_folder(args.path):

@@ -1,8 +1,16 @@
 #!/usr/local/bin/python -u
 # -*- coding: utf-8 -*-
+# We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-    The Experiment class standardizes file io.
+    Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek 
+    Braun* (*derek.braun@gallaudet.edu)
+    
+    Contains routines to standardize file I/O and to select columns and
+    keywords from the resulting data files. Greatly simplifies coding
+    elsewhere.
+    
+    Last updated: 23-Jun-2017 by Derek Braun
 '''
 
 
@@ -17,6 +25,7 @@ PARAMS = ['experiment_date',
 import os
 import time
 import csv
+import numpy
 
 
 def create_folder(path):
@@ -62,10 +71,12 @@ class Experiment:
             self.experiment_date = time.strftime('%Y %b %d')
             self.headers = None
         elif filename is not None and len(kwargs) == 0:
+            self.filename = filename
             self._read()
         elif filename is not None and len(kwargs) > 0:
             raise BaseException, 'You cannot pass both a filename and metatata'\
                                  ' to Experiment.__init__.'
+
 
     def write_metadata(self, overwrite=False):
         '''
@@ -89,6 +100,7 @@ class Experiment:
             f.close()
             return True
     
+    
     def write(self, rows):
         '''
             Appends a block of data to an existing .tsv file. Should be 
@@ -108,43 +120,58 @@ class Experiment:
         else:
             return False
             
-    def _read(self, filename):
+            
+    def _read(self):
         '''
             Internal method to extract data and experimental parameters from a
-            TSV file.
+            tsv file. Populates the class with data.
+            
+            Returns:    True    if successful
+                        False   if file not found
         '''
-        f = open(filename,'r')
-        rows = csv.reader(f, dialect=csv.excel_tab)
-        self.data = []
-        for row in rows:
-            if '#' in row[0] and '=' in row[0]:
-                key = row[0].replace('#','').split('=')[0].strip()
-                value = row[0].replace('#','').split('=')[1].strip()
-                
-                if not isattr(self, key):
-                    setattr(self, key, value)
-                    continue
-            elif '#' in row[0]:
-                self.headers = row
-                continue
-            else:
-                self.data += [row]
-        # This clever Python shorthand transposes a table. It will cause data
-        # truncation if the table does not have consistent dimensions.
-        self.data = zip(*self.data)
+        if os.path.isfile(self.filename):        
+            f = open(self.filename,'r')
+            rows = csv.reader(f, dialect=csv.excel_tab)
+            self.data = []
+            for row in rows:
+                if '#' in row[0] and '=' in row[0]:
+                    key = row[0].replace('#','').split('=')[0].strip()
+                    value = row[0].replace('#','').split('=')[1].strip()
+                    if not hasattr(self, key):
+                        setattr(self, key, value)
+                        continue
+                if not hasattr(self, 'headers'):
+                    self.headers = row
+                else:
+                    self.data += [row]
+            # This clever Python shorthand transposes a table. It will cause data
+            # truncation if the table does not have consistent dimensions.
+            self.data = zip(*self.data)
+            return True
+        return False
         
-    def select(self, param):
+        
+    def select(self, param, row=None):
         '''
-            Selects the first instance of a data column with name param.
-            Returns a list
+            Selects data columns with name param. Optional row argument allows
+            for selection of both a column and a row.
+            
+            Accepts 
+                row             an optional row index
+                
+            Returns a numpy array
         '''
         l = []
         for h, col in zip(self.headers, self.data):
-            if param in h:
-                l.append(int(col[0]))
-                break
+            if row is None:
+                if param in h:
+                    l.append(col)
+            else:
+                if param in h:
+                    l.append(col[row])
         return numpy.array(l)
-        
+
+
     def hpd(self, param):
         '''
             Selects all instances of a data column with name param.
