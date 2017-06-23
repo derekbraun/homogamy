@@ -24,7 +24,7 @@ import fileio
 experiment = fileio.Experiment( constant_pop_size   = 10000,
                                 aa_fitness          = 1.0,
                                 aa_homogamy         = aa_HOMOGAMY,
-                                a_freq              = 0.01304,
+                                a              = 0.01304,
                                 gen                 = 100)
 
 import os
@@ -134,13 +134,13 @@ def deafChooser(pop, subPop):
         yield random.choice(couples)
 
         
-def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq, 
+def simuAssortativeMatingWithFitness(constant_pop_size, gen, a, 
                                     aa_fitness, aa_homogamy):
     '''
         Accepts:
         constant_pop_size   population size, which remains constant throughout
         gen                 number of generations
-        a_freq              starting frequency of the a allele
+        a              starting frequency of the a allele
         aa_fitness          _relative_ fitness of deaf (aa) individuals
         aa_homogamy         the percent of assortative mating between
                             deaf individuals
@@ -148,8 +148,8 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq,
         gen                 generation number
         AA/Aa_size          size of the AA/aa population
         aa_size             size of the aa population
-        A_freq              frequency of the A allele
-        a_freq              frequency of the a allele
+        A              frequency of the A allele
+        a              frequency of the a allele
         
         Adopted from: http://simupop.sourceforge.net/Cookbook/AssortativeMating
     '''             
@@ -169,7 +169,7 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq,
                   # This can result in slightly more males or females, 
                   # which can cause errors if the wrong mating scheme is 
                   # selected.
-                  sim.InitGenotype(freq=[1-a_freq, a_freq])
+                  sim.InitGenotype(freq=[1-a, a])
                   ],
         preOps = [sim.MapSelector(loci=[0], fitness={(0,0):1,
                                                  (0,1):1,
@@ -191,10 +191,10 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq,
                         generator = sim.OffspringGenerator(sim.MendelianGenoTransmitter())),
                     
         postOps = [sim.Stat(alleleFreq=[0], genoFreq=[0]), 
-                   sim.PyExec(r"headers += ['gen','A_freq', 'a_freq',"\
-                                   "'AA_Freq', 'Aa_Freq', 'aa_Freq',"\
+                   sim.PyExec(r"headers += ['gen','A', 'a',"\
+                                   "'AA', 'Aa', 'aa',"\
                                    "'AA_size', 'Aa_size', 'aa_size',"\
-                                   "'FAa_Inbreeding']"),
+                                   "'F']"),
                    sim.PyExec(r"row += [gen, alleleFreq[0][0], alleleFreq[0][1],"\
                                    "genoFreq[0][(0,0)],"\
                                    "genoFreq[0][(0,1)]+genoFreq[0][(1,0)],"\
@@ -227,53 +227,68 @@ if __name__ == '__main__':
                         default = os.path.dirname(__file__))
     parser.add_argument('-o','--overwrite',action='store_true',
                         help = 'overwrite tsv file')
-    parser.add_argument('-v','--verbose',action='store_true',
-                        help = 'also outputs the sample run')
+    parser.add_argument('-s','--sample_run',action='store_true',
+                        help = 'sample run only; display results')
     args=parser.parse_args()
-        
-    if fileio.create_folder(args.path):
-        print "  Created folder '{}'".format(args.path)
-    else:
-        print "  Using '{}'".format(args.path)
     
     # This quick sample run obtains the headers for the data file.
     sample_run = simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
                                                   experiment.gen,
-                                                  experiment.a_freq, 
+                                                  experiment.a, 
                                                   experiment.aa_fitness,   
-                                                  experiment.aa_homogamy)
-    experiment.headers = sample_run['headers']    
-    experiment.source_code = os.path.split(__file__)[-1].replace('.pyc','.py')
-    experiment.filename = os.path.join(args.path, 
-                                       'pop{experiment.constant_pop_size}'\
-                                       '_fitness{experiment.aa_fitness}'\
-                                       '_homogamy{experiment.aa_homogamy:.2}.tsv'\
-                                       ''.format(**locals()))
-    if experiment.write_metadata():
-        print "  Created '{}'".format(experiment.filename)
-    elif args.overwrite:
-        experiment.write_metadata(overwrite=True)
-        print "  Overwrote '{}'".format(experiment.filename)
+                                                  experiment.aa_homogamy)    
+    if args.sample_run:    
+        print experiment.metadata()
+        for h in sample_run['headers'][0:10]:
+            print "{h:>8}".format(h=h),
+        print
+        for h in sample_run['headers'][0:10]:
+            print " -------",
+        print
+        for gen in range(0,len(sample_run['row'])/10):
+            for datum in sample_run['row'][10*gen:10*(1+gen)]:
+                if type(datum) is int or datum == int(datum):
+                    print " {datum:>7,}".format(datum=int(datum)),
+                else:
+                    print " {datum:>7.5f}".format(datum=datum),
+            print
     else:
-        print "File '{}' exists.".format(experiment.filename)
-        print "  Use --overwrite to re-do the experiment."
-        exit()
+        if fileio.create_folder(args.path):
+            print "  Created folder '{}'".format(args.path)
+        else:
+            print "  Using '{}'".format(args.path)
+        experiment.headers = sample_run['headers']
+        experiment.source_code = os.path.split(__file__)[-1].replace('.pyc','.py')
+        experiment.filename = os.path.join(args.path, 
+                                           'pop{experiment.constant_pop_size}'\
+                                           '_fitness{experiment.aa_fitness}'\
+                                           '_homogamy{experiment.aa_homogamy:.2}.tsv'\
+                                           ''.format(**locals()))
+        if experiment.write_metadata():
+            print "  Created '{}'".format(experiment.filename)
+        elif args.overwrite:
+            experiment.write_metadata(overwrite=True)
+            print "  Overwrote '{}'".format(experiment.filename)
+        else:
+            print "File '{}' exists.".format(experiment.filename)
+            print "  Use --overwrite to re-do the experiment."
+            exit()
         
-    proposals = 0
-    while proposals < PROPOSALS:
-        start_time = time.time()
-        print_time = start_time
-        row = simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
-                                               experiment.gen,
-                                               experiment.a_freq, 
-                                               experiment.aa_fitness,   
-                                               experiment.aa_homogamy)['row']
-        experiment.write([row])
-        proposals += 1
-        rate = 60./(time.time()-start_time)
-        if time.time()-print_time > 60 or proposals == PROPOSALS:
-            print '  {proposals:,} proposals completed ' \
-                  '({rate:,.0f} proposals/min)'\
-                  ''.format(proposals=proposals, rate=rate)
-            print_time = time.time()
+        proposals = 0
+        while proposals < PROPOSALS:
+            start_time = time.time()
+            print_time = start_time
+            row = simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
+                                                   experiment.gen,
+                                                   experiment.a, 
+                                                   experiment.aa_fitness,   
+                                                   experiment.aa_homogamy)['row']
+            experiment.write([row])
+            proposals += 1
+            rate = 60./(time.time()-start_time)
+            if time.time()-print_time > 60 or proposals == PROPOSALS:
+                print '  {proposals:,} proposals completed ' \
+                      '({rate:,.0f} proposals/min)'\
+                      ''.format(proposals=proposals, rate=rate)
+                print_time = time.time()
     print '  Done.'

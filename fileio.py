@@ -100,6 +100,16 @@ class Experiment:
             f.close()
             return True
     
+    def metadata(self):
+        '''
+            Returns a string with all the metadata.
+        '''
+        s = ''
+        for param in PARAMS:
+            if hasattr(self, param):
+                s += '{} = {}\n'.format(param, getattr(self, param))
+        return s
+    
     
     def write(self, rows):
         '''
