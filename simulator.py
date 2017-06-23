@@ -1,0 +1,299 @@
+#!/usr/local/bin/python -u
+# -*- coding: utf-8 -*-
+
+'''
+    Samir Jain, Eric Epstein, Derek Braun* (summer '14)
+    Trevor Klemp, Derek Braun* (summer '16)
+    Maggie Gray, Selman Jawed, Derek Braun* (summer '17)
+    *derek.braun@gallaudet.edu
+    
+    We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
+    
+    Last updated: 21-Jun-2017 by Derek to clean up code and divide
+    this project into four programs:
+    
+        simulator.py        Runs the simulations. Simulation parameters are
+                            stored as global variables.
+                            A new copy of simulator.py is needed
+                            for every set of simulation parameters.
+                            Outputs a results tsv file.
+                          
+        fileio.py           Creates classes for reading and writing 
+                            experimental data to/from a tsv file.
+                            
+        grapher.py          Accepts the name of a tsv data file as input.
+                            Produces graph(s) as output.
+                            
+        stats.py            *To be created by this summer's interns!
+                            Accepts the names of tsv data files as input
+                            Outputs the results of stats analyses comparing
+                            the data in these tsv files.
+'''
+
+
+DEBUG_MODE = False
+
+# Simulation Parameters
+PROPOSALS = 10
+a_FREQ = 0.01304                # Able to execute with low frequencies as of now.
+aa_HOMOGAMY = 0.0               # This variable MUST be a global b/c this is 
+                                # the only way to get it into the deafChooser
+                                # generator function
+                                
+import fileio
+experiment = fileio.Experiment( constant_pop_size   = 10000,
+                                aa_fitness          = 1.0,
+                                aa_homogamy         = aa_HOMOGAMY,
+                                a_freq              = 0.01304,
+                                gen                 = 100)
+
+import os
+import time
+import random
+import argparse
+import simuOpt
+if DEBUG_MODE:
+    PROPOSALS = 1
+else:
+    simuOpt.setOptions(optimized=True, numThreads=0, quiet=True)
+import simuPOP as sim
+
+def deafChooser(pop, subPop):
+    '''
+        Generator function which chooses parents. 
+        I don't know if it's possible to pass additional parameters to 
+        this generator but I would like to pass the percentage of
+        deaf-deaf marriages (aa_homogamy).
+    
+        Upon initialization, this chooser pairs up (marries) couples, resulting
+        in a monogamous mating scheme. Deaf are paired up first, so as to achieve
+        the desired percentage of deaf-deaf marriages.
+    
+        Each time this generator is called, it returns a random couple. The
+        couples do not change (there is no divorce or death). Implemented this 
+        way, roughly 80% of couples will have children, and roughly 20% will have
+        more than one child.
+    
+        A monogamous mating scheme isn't entirely representative of human behavior,
+        but it's much closer to reality than an entirely random mating scheme where
+        nearly every child will have different parents and there are almost no full
+        siblings.
+    '''
+    all_males = []
+    all_females = []
+    hearing_males = []
+    hearing_females = []
+    deaf_males = []
+    deaf_females = []
+    couples = []
+    
+    # bin individuals
+    for i in range(pop.subPopSize(subPop)):
+        person = pop.individual(i)
+        if person.sex() == sim.MALE:
+            all_males.append(i)
+            if list(person.genotype()) == [1, 1]:
+                deaf_males.append(i)
+            else:
+                hearing_males.append(i)
+        elif person.sex() == sim.FEMALE:
+            all_females.append(i)
+            if list(person.genotype()) == [1, 1]:
+                deaf_females.append(i)
+            else:
+                hearing_females.append(i)
+        else:
+            print "simuPOP gender dysphoria error. Send scathing email to Bo Peng"
+
+
+    # pair off deaf individuals first, to achieve the desired percentage
+    # of deaf-deaf marriage
+    random.shuffle(deaf_females)
+    random.shuffle(deaf_males)
+    random.shuffle(hearing_females)
+    random.shuffle(hearing_males)
+    while len(deaf_females) > 0 and len(deaf_males) > 0 and len(hearing_males) > 0:
+        woman = deaf_females.pop()
+        if random.random() < aa_HOMOGAMY:
+            man = deaf_males.pop()
+            couples += [(man, woman)]
+        else:
+            man = hearing_males.pop()
+            couples += [(man, woman)]
+    
+    # move remaining deaf people into hearing (now general) bins, and reshuffle
+    hearing_males += deaf_males        
+    hearing_females += deaf_females
+    random.shuffle(hearing_males)
+    random.shuffle(hearing_females)
+    
+    while len(hearing_females) > 0 and len(hearing_males) > 0:
+        woman = hearing_females.pop()
+        man = hearing_males.pop()
+        couples += [(man, woman)]
+        
+    # marry off remaining un-married, mostly hearing people 
+    # (let's just say that this represents second marriages and out-of-wedlock
+    # children. More importantly, why are we doing this? 
+    # This is needed to nullify the slight advantage that we
+    # just gave deaf people by making sure that every single deaf person was
+    # married, which we didn't do for hearing people. Without this extra code,
+    # in small populations, deaf people will have a slight fitness advantage.
+    
+    while len(hearing_females) > 0:
+        women = hearing_females.pop()
+        man = random.choice(all_males)
+        couples += [(man, woman)]
+    while len(hearing_males) > 0:
+        man = hearing_males.pop()
+        woman = random.choice(all_females)
+        couples += [(man, woman)]
+
+    # Hey, you! You're having a kid today!
+    while True:
+        yield random.choice(couples)
+
+        
+def simuAssortativeMatingWithFitness(constant_pop_size, gen, a_freq, 
+                                    aa_fitness, aa_homogamy):
+    '''
+        Accepts:
+        constant_pop_size   population size, which remains constant throughout
+        gen                 number of generations
+        a_freq              starting frequency of the a allele
+        aa_fitness          _relative_ fitness of deaf (aa) individuals
+        aa_homogamy         the percent of assortative mating between
+                            deaf individuals
+        Returns a dict containing the results from the simulation:
+        gen                 generation number
+        AA/Aa_size          size of the AA/aa population
+        aa_size             size of the aa population
+        A_freq              frequency of the A allele
+        a_freq              frequency of the a allele
+        
+        Adopted from: http://simupop.sourceforge.net/Cookbook/AssortativeMating
+    '''             
+    sim.setRNG(random.seed(sim.getRNG().seed()))    
+    pop = sim.Population(constant_pop_size, loci=[1], infoFields=['fitness'])
+    pop.dvars().headers = [] 
+    pop.dvars().row = []
+    pop.setVirtualSplitter(sim.GenotypeSplitter(loci=[0], alleles=[[0,0,0,1],[1,1]]))
+    # Creates two virtual subpopulations needed in order to define a mating 
+    # scheme: 
+    #   Note: allele definitions are _unphased_ so (0,1) and (1,0) are equivalent
+    #   alleles=[0,0,0,1] are individuals with 00 or 01 (AA/Aa)
+    #   alleles=[1,1] are individuals with 11 (aa)
+    pop.evolve(
+        initOps= [sim.InitSex(),
+                  # Assigns individuals randomly to be male or female.
+                  # This can result in slightly more males or females, 
+                  # which can cause errors if the wrong mating scheme is 
+                  # selected.
+                  sim.InitGenotype(freq=[1-a_freq, a_freq])
+                  ],
+        preOps = [sim.MapSelector(loci=[0], fitness={(0,0):1,
+                                                 (0,1):1,
+                                                 (1,1):aa_fitness})
+                  # Assigns fitness values to individuals with different
+                  # genotypes. This is stored in a field called 'fitness'
+                  # by default, which is then applied by the appropriate
+                  # mating scheme, also by default.
+                  # Fitness in this case is relative fitness and is applied 
+                  # during the mating scheme. Some mating schemes do not 
+                  # support fitness, so check the documentation!
+                  # If fitness is used, _all_ individuals must be assigned a 
+                  # fitness or those with no assignment will be calculated as
+                  # having zero fitness and will be discarded during the mating
+                  # scheme.
+                  ],
+        matingScheme = sim.HomoMating(
+                        chooser = sim.PyParentsChooser(deafChooser),
+                        generator = sim.OffspringGenerator(sim.MendelianGenoTransmitter())),
+                    
+        postOps = [sim.Stat(alleleFreq=[0], genoFreq=[0]), 
+                   sim.PyExec(r"headers += ['gen','A_freq', 'a_freq',"\
+                                   "'AA_Freq', 'Aa_Freq', 'aa_Freq',"\
+                                   "'AA_size', 'Aa_size', 'aa_size',"\
+                                   "'FAa_Inbreeding']"),
+                   sim.PyExec(r"row += [gen, alleleFreq[0][0], alleleFreq[0][1],"\
+                                   "genoFreq[0][(0,0)],"\
+                                   "genoFreq[0][(0,1)]+genoFreq[0][(1,0)],"\
+                                   "genoFreq[0][(1,1)],"\
+                                   "genoNum[0][(0,0)],"\
+                                   "genoNum[0][(0,1)]+genoNum[0][(1,0)],"\
+                                   "genoNum[0][(1,1)],"\
+                                   "1.0-(genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/"\
+                                   "(2.0*alleleFreq[0][0]*alleleFreq[0][1])"\
+                                   "if alleleFreq[0][0] != 0.0 and alleleFreq[0][1]"\
+                                   "!= 0.0 and genoFreq[0][(0,1)] != 0.0 else 1.0]")
+                  # Addition of genoNum[x][(x,x)] to count the number of individuals
+                  # with that specific genotype.
+                  # You can add frequencies and sizes through addition. There are two
+                  # sizes for both Aa carriers (0,1) and (1,0). Adding these can be done
+                  # as seen above.      
+                   ],
+        gen = gen
+    )
+    return {'headers':pop.dvars().headers, 'row':pop.dvars().row}
+
+
+# MAIN FUNCTION           
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('path',
+                        help = 'results folder path. If the folder does not exist, '\
+                               'it will be created.',
+                        nargs = '?',  # makes this argument optional
+                        default = os.path.dirname(__file__))
+    parser.add_argument('-o','--overwrite',action='store_true',
+                        help = 'overwrite old tsv files.')
+    parser.add_argument('-v','--verbose',action='store_true',
+                        help = 'also outputs the sample runs.')
+    args=parser.parse_args()
+        
+    if fileio.create_folder(args.path):
+        print "  Created folder '{}'".format(args.path)
+    else:
+        print "  Using '{}'".format(args.path)
+    
+    # This quick sample run obtains the headers for the data file.
+    sample_run = simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
+                                                  experiment.gen,
+                                                  experiment.a_freq, 
+                                                  experiment.aa_fitness,   
+                                                  experiment.aa_homogamy)
+    experiment.headers = sample_run['headers']    
+    experiment.source_code = os.path.split(__file__)[-1].replace('.pyc','.py')
+    experiment.filename = os.path.join(args.path, 
+                                       'pop{experiment.constant_pop_size}'\
+                                       '_fitness{experiment.aa_fitness}'\
+                                       '_homogamy{experiment.aa_homogamy:.2}.tsv'\
+                                       ''.format(**locals()))
+    if experiment.write_metadata():
+        print "  Created '{}'".format(experiment.filename)
+    elif args.overwrite:
+        experiment.write_metadata(overwrite=True)
+        print "  Overwrote '{}'".format(experiment.filename)
+    else:
+        print "File '{}' exists.".format(experiment.filename)
+        print "  Use --overwrite to re-do the experiment."
+        exit()
+        
+    proposals = 0
+    while proposals < PROPOSALS:
+        start_time = time.time()
+        print_time = start_time
+        row = simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
+                                               experiment.gen,
+                                               experiment.a_freq, 
+                                               experiment.aa_fitness,   
+                                               experiment.aa_homogamy)['row']
+        experiment.write([row])
+        proposals += 1
+        rate = 60./(time.time()-start_time)
+        if time.time()-print_time > 60 or proposals == PROPOSALS:
+            print '  {proposals:,} proposals completed ' \
+                  '({rate:,.0f} proposals/min)'\
+                  ''.format(proposals=proposals, rate=rate)
+            print_time = time.time()
+    print '  Done.'
