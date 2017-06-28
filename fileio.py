@@ -18,7 +18,7 @@ PARAMS = ['experiment_date',
           'source_code',
           'constant_pop_size',
           'gen',
-          'a_freq', 
+          'a', 
           'aa_fitness',
           'aa_homogamy']
 

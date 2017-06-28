@@ -14,8 +14,7 @@
 DEBUG_MODE = False
 
 # Simulation Parameters
-PROPOSALS = 10
-a_FREQ = 0.01304                # Able to execute with low frequencies as of now.
+PROPOSALS = 100                 # Able to execute with low frequencies as of now.
 aa_HOMOGAMY = 0.0               # This variable MUST be a global b/c this is 
                                 # the only way to get it into the deafChooser
                                 # generator function
@@ -24,7 +23,7 @@ import fileio
 experiment = fileio.Experiment( constant_pop_size   = 10000,
                                 aa_fitness          = 1.0,
                                 aa_homogamy         = aa_HOMOGAMY,
-                                a              = 0.01304,
+                                a                   = 0.01304,
                                 gen                 = 100)
 
 import os
@@ -140,7 +139,7 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a,
         Accepts:
         constant_pop_size   population size, which remains constant throughout
         gen                 number of generations
-        a              starting frequency of the a allele
+        a                   starting frequency of the a allele
         aa_fitness          _relative_ fitness of deaf (aa) individuals
         aa_homogamy         the percent of assortative mating between
                             deaf individuals
@@ -148,8 +147,8 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a,
         gen                 generation number
         AA/Aa_size          size of the AA/aa population
         aa_size             size of the aa population
-        A              frequency of the A allele
-        a              frequency of the a allele
+        A                   frequency of the A allele
+        a                   frequency of the a allele
         
         Adopted from: http://simupop.sourceforge.net/Cookbook/AssortativeMating
     '''             
@@ -274,10 +273,10 @@ if __name__ == '__main__':
             print "  Use --overwrite to re-do the experiment."
             exit()
         
+        print "  Running simulations..."
         proposals = 0
+        start_time = print_time = time.time()
         while proposals < PROPOSALS:
-            start_time = time.time()
-            print_time = start_time
             row = simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
                                                    experiment.gen,
                                                    experiment.a, 
