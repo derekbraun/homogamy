@@ -16,7 +16,7 @@ import fileio
 import os
 
 
-deaf foo:
+def foo:
     print 'bar'
     
     
