@@ -6,9 +6,18 @@
     Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek 
     Braun* (*derek.braun@gallaudet.edu)
     
-    Produces graphs for the data files created by Simulator.py.
+    Produces graphs for the data files created by simulator.py.
     Last updated: 23-Jun-2017 by Derek Braun
 '''
+
+
+#   To do list:
+#   1.  DONE Get this working.
+#   2.  Incorporate the old line plot and distribution code from Eric and Samir
+#   2.  Streamline the copious rcparams code somehow. Either use existing 
+#       styles, or move these into a local rcparams file, or dynamically use
+#       the matplotlib.rc_params_from_file method.
+
 
 import argparse
 import matplotlib
@@ -102,13 +111,30 @@ def _set_plot_params(use='print', scaling=1.0):
     return d['colors']
 
 
+def _adjustFigAspect(fig, aspect=1.5):
+        '''
+            Adjusts the whitespace around a figure so that each subplot 
+            achieves the desired aspect ratio (square by default).
+            Accepts a matplotlib figure object.
+            Doesn't need to return anything because it directly modifies the 
+            figure object.
+        '''
+        xsize, ysize = fig.get_size_inches()
+        minsize = min(xsize, ysize)
+        xlim = .4*minsize/xsize
+        ylim = .4*minsize/ysize
+        if aspect < 1:
+            xlim *= aspect
+        else:
+            ylim /= aspect
+        fig.subplots_adjust(left=.375-xlim,
+                            right=.625+xlim,
+                            bottom=.375-ylim,
+                            top=.625+ylim)
+
+
 def density_plot(ax, X, Ya, title=None, xlabel=None, ylabel=None, 
                             use='print', gradients=32, scaling=1.0):
-    # The algorithm is horribly inefficient and confusing to read, but it works 
-    # very well. I have found that a smaller number of gradient steps seems to 
-    # give better results, and this also makes the algorithm run faster; 
-    # therefore it may not be worth the effort to re-write the algorithm.
-    # Currently it takes about 5 seconds to make a plot.
     '''
         Produces a density plot.
         The median values and 95% credible intervals are also represented 
@@ -123,10 +149,9 @@ def density_plot(ax, X, Ya, title=None, xlabel=None, ylabel=None,
             use             determines the font size and line width according
                             to the global PLOT_PARAMS dict.
             gradients       the number of gradients. More gradients means
-                            a smoother looking density plot at the cost of
-                            many more polygons and therefore a larger vector
-                            file which may not, for example, print.
-            scaling         scaling factor needed for creating subplots,
+                            a smoother density plot at the cost of a larger 
+                            vector file.
+            scaling         scaling factor used for creating subplots,
                             where the text and lines need to be scaled down.
     '''
     _set_plot_params(use, scaling)
@@ -157,15 +182,19 @@ def density_plot(ax, X, Ya, title=None, xlabel=None, ylabel=None,
             Yugs.append(Y[uidx])
             Ylgs.append(Y[lidx])
         Ygrads.append((Yugs,Ylgs))
-        
-    
+
+
+    ## TYPING PROBLEM !!!! numpy.ndarray not supported.
     ax.set_xlim(min(X),max(X))
     if title is not None:
         ax.set_title(title)
     if xlabel is not None:
         ax.set_xlabel(xlabel)
     if ylabel is not None:
-        ax.set_ylabel(ylabel)
+        if len(ylabel) < 4:
+            ax.set_ylabel(ylabel, rotation=0)
+        else:
+            ax.set_ylabel(ylabel)
     for i, Yg in enumerate(Ygrads):
         ax.fill_between(X, Yg[0], Yg[1], color=BUFF, alpha=1./(gradients/4.))
     ax.plot(X, Y_upper_cis, color=BLUE)
@@ -179,32 +208,37 @@ def density_plot(ax, X, Ya, title=None, xlabel=None, ylabel=None,
             va='top', ha='left')
     ax.grid(False)  
     return ax
-    
-def adjustFigAspect(fig, aspect=1.5):
-        '''
-            Adjusts the whitespace around a figure so that each subplot 
-            achieves the desired aspect ratio (square by default).
-            Accepts a matplotlib figure object.
-            Doesn't need to return anything because it directly modifies the 
-            figure object.
-        '''
-        xsize, ysize = fig.get_size_inches()
-        minsize = min(xsize, ysize)
-        xlim = .4*minsize/xsize
-        ylim = .4*minsize/ysize
-        if aspect < 1:
-            xlim *= aspect
-        else:
-            ylim /= aspect
-        fig.subplots_adjust(left=.375-xlim,
-                            right=.625+xlim,
-                            bottom=.375-ylim,
-                            top=.625+ylim)
-    
+
+
+def write_density_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None, 
+                       use='print'):
+    '''
+        Produces and writes a density plot to filename. 
+        
+        Accepts:
+            filename        the file to be written
+        
+        See density_plot for a fuller description of the other parameters.
+    '''
+    _set_plot_params(use)
+    plt.clf()
+    fig = plt.figure()
+    if title is not None:
+        plt.title(title)
+    ax = fig.add_subplot(111)
+    ax = density_plot(ax, X, Ya, xlabel=xlabel, ylabel=ylabel, use=use)
+    #_adjustFigAspect(fig)
+    plt.savefig(filename, transparent=True)
+    plt.close()
+
+
 def write_summary_density_plot(filename, Xarr, Yarr, nrows, ncols, multiplot_titles=[], 
                                title=None, xlabel=None, ylabel=None,
                                use='print'):
     '''
+        Deprecated because it was too complicated to handle, but I've 
+        kept this with the rest of the code.
+        
         Produces a type of line chart, where for each x, the median value is 
         shown as a line, and the area between the 5% and 95% CI are shaded.
         
@@ -226,7 +260,6 @@ def write_summary_density_plot(filename, Xarr, Yarr, nrows, ncols, multiplot_tit
         Examples for setting up multiple charts on shared axes are at:
         http://matplotlib.org/examples/pylab_examples/subplots_demo.html
     '''
-
     _set_plot_params(use, scaling=1./nrows)
     plt.clf()
     fig, axarr = plt.subplots(nrows, ncols, sharex=True, sharey=False)
@@ -256,22 +289,12 @@ def write_summary_density_plot(filename, Xarr, Yarr, nrows, ncols, multiplot_tit
                               title=title,
                               use=use,
                               scaling=1./nrows)
-    adjustFigAspect(fig)
+    _adjustFigAspect(fig)
     plt.savefig(filename, transparent=True)
     plt.close()
 
-def write_density_plot(filename, X, Y, title=None, xlabel=None, ylabel=None, use='print'):
-    _set_plot_params(use)
-    plt.clf()
-    fig = plt.figure()
-    if title is not None:
-        plt.title(title)
-    ax = fig.add_subplot(111)
-    ax = density_plot(ax, X, Y, xlabel=xlabel, ylabel=ylabel, use=use)
-    plt.savefig(filename, transparent=True)
-    plt.close()
-    
-    
+
+
 #
 #   MAIN ROUTINE
 #
@@ -280,8 +303,8 @@ if __name__ == '__main__':
                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('filename',
                         help = 'filename for data file')
-    parser.add_argument('-s','--sample arg',action='store_true',
-                        help = 'sample argument')
+    parser.add_argument('-c','--contour',action='store_true', default=True,
+                        help = 'create contour plots')
     args=parser.parse_args()
     
     if os.path.isfile(args.filename):
@@ -289,33 +312,22 @@ if __name__ == '__main__':
         print '  Reading {}'.format(args.filename)
     else:
         print '  File not found.'
-   
-    X = e.select('gen', 0)    
-    title='N={:,}   '\
-          'fitness={:.1f}    '\
-          'homogamy={:.1f}'\
+    
+    
+    if args.contour:
+        title='N={:,} fitness={:.1f} homogamy={:.1f}'\
           ''.format(int(e.constant_pop_size),
                     float(e.aa_fitness),
                     float(e.aa_homogamy))
-     
-    # Create summary (TEST) contour charts
-    for use in ['print']:
-        bn1 = 'summaryFrequency_Comparison.{}.pdf'.format(use)
-        filename = os.path.join(args.path, bn1)
-        print "Saving summary chart to '{}'.".format(filename)
-        Ya = [multiplot_a_freqs[0]]+[multiplot_AA_Freqs[0]]+[multiplot_Aa_Freqs[0]]+\
-        [multiplot_aa_Freqs[0]]+[multiplot_FAa[0]]
-        multiplot_titles = 'Change of Allele "a" over Time',\
-        'Change of Genotype "AA" over Time', 'Change of Genotype "Aa" over Time',\
-        'Change of Genotype "aa" over Time', 'Change of "F" over Time',\
-        'Fitness 1.0, Homogamy '+aa_HOMOGAMY,' N = 10,000'
-        gm.write_summary_density_plot(filename, 
-                                   Xarr=[X for i in range(len(Ya))],
-                                   Yarr=Ya,
-                                   nrows=3,
-                                   ncols=2,
+        X = e.select('gen',0)
+        for use in ['print']:
+            for var in ['A','a','AA','Aa','aa','F']:
+                bn = 'contour.{var}.for_{use}.pdf'.format(**locals())
+                filename = os.path.join(os.path.dirname(args.filename), bn)
+                Ya = e.select(var)
+                write_density_plot(filename, X, Ya,
                                    title=title,
-                                   multiplot_titles=multiplot_titles,
                                    xlabel='Generations',
-                                   ylabel='Allele Frequency',
-                                   use = use)
+                                   ylabel=var,
+                                   use=use)
+                print "  Writing '{}'.".format(filename)

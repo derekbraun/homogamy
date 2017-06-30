@@ -6,7 +6,10 @@
     Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek 
     Braun* (*derek.braun@gallaudet.edu)
     
-    Simulation module.
+    Simulation module which uses simuPOP. Simulation parameters are set via 
+    setting global variables, and, for changing assortative mating, sometimes
+    by changing the code.
+    
     Last updated: 23-Jun-2017 by Derek Braun
 '''
 

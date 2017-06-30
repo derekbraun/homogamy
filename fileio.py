@@ -169,17 +169,17 @@ class Experiment:
             Accepts 
                 row             an optional row index
                 
-            Returns a numpy array
+            Returns a numpy array with dtype float.
         '''
         l = []
         for h, col in zip(self.headers, self.data):
             if row is None:
-                if param in h:
+                if param == h:
                     l.append(col)
             else:
                 if param in h:
                     l.append(col[row])
-        return numpy.array(l)
+        return numpy.array(l, dtype=float)
 
 
     def hpd(self, param):
