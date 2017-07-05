@@ -156,7 +156,7 @@ class Experiment:
                     self.data += [row]
             # This clever Python shorthand transposes a table. It will cause data
             # truncation if the table does not have consistent dimensions.
-            self.data = zip(*self.data)
+            self.data = zip(*self.data)            
             return True
         return False
         

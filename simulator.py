@@ -17,7 +17,7 @@
 DEBUG_MODE = False
 
 # Simulation Parameters
-PROPOSALS = 100                 # Able to execute with low frequencies as of now.
+PROPOSALS = 1000                # Able to execute with low frequencies as of now.
 aa_HOMOGAMY = 0.0               # This variable MUST be a global b/c this is 
                                 # the only way to get it into the deafChooser
                                 # generator function
@@ -226,7 +226,7 @@ if __name__ == '__main__':
                         help = 'results folder path. If the folder does not exist, '\
                                'it will be created',
                         nargs = '?',  # makes this argument optional
-                        default = os.path.dirname(__file__))
+                        default = os.getcwd())
     parser.add_argument('-o','--overwrite',action='store_true',
                         help = 'overwrite tsv file')
     parser.add_argument('-s','--sample_run',action='store_true',
@@ -258,7 +258,7 @@ if __name__ == '__main__':
         if fileio.create_folder(args.path):
             print "  Created folder '{}'".format(args.path)
         else:
-            print "  Using '{}'".format(args.path)
+            print "  Using folder '{}'".format(args.path)
         experiment.headers = sample_run['headers']
         experiment.source_code = os.path.split(__file__)[-1].replace('.pyc','.py')
         experiment.filename = os.path.join(args.path, 
@@ -272,8 +272,8 @@ if __name__ == '__main__':
             experiment.write_metadata(overwrite=True)
             print "  Overwrote '{}'".format(experiment.filename)
         else:
-            print "File '{}' exists.".format(experiment.filename)
-            print "  Use --overwrite to re-do the experiment."
+            print "  File '{}' exists.".format(experiment.filename)
+            print "  Use --overwrite to overwrite this file."
             exit()
         
         print "  Running simulations..."
@@ -287,8 +287,8 @@ if __name__ == '__main__':
                                                    experiment.aa_homogamy)['row']
             experiment.write([row])
             proposals += 1
-            rate = 60./(time.time()-start_time)
             if time.time()-print_time > 60 or proposals == PROPOSALS:
+                rate = proposals*60./(time.time()-start_time)
                 print '  {proposals:,} proposals completed ' \
                       '({rate:,.0f} proposals/min)'\
                       ''.format(proposals=proposals, rate=rate)
