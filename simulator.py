@@ -17,7 +17,7 @@
 DEBUG_MODE = False
 
 # Simulation Parameters
-PROPOSALS = 1000                # Able to execute with low frequencies as of now.
+SIMULATIONS = 1000
 aa_HOMOGAMY = 0.0               # This variable MUST be a global b/c this is 
                                 # the only way to get it into the deafChooser
                                 # generator function
@@ -194,25 +194,22 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a,
                     
         postOps = [sim.Stat(alleleFreq=[0], genoFreq=[0]), 
                    sim.PyExec(r"headers += ['gen','A', 'a',"\
-                                   "'AA', 'Aa', 'aa',"\
-                                   "'AA_size', 'Aa_size', 'aa_size',"\
-                                   "'F']"),
-                   sim.PyExec(r"row += [gen, alleleFreq[0][0], alleleFreq[0][1],"\
-                                   "genoFreq[0][(0,0)],"\
-                                   "genoFreq[0][(0,1)]+genoFreq[0][(1,0)],"\
-                                   "genoFreq[0][(1,1)],"\
-                                   "genoNum[0][(0,0)],"\
-                                   "genoNum[0][(0,1)]+genoNum[0][(1,0)],"\
-                                   "genoNum[0][(1,1)],"\
-                                   "1.0-(genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/"\
-                                   "(2.0*alleleFreq[0][0]*alleleFreq[0][1])"\
-                                   "if alleleFreq[0][0] != 0.0 and alleleFreq[0][1]"\
-                                   "!= 0.0 and genoFreq[0][(0,1)] != 0.0 else 1.0]")
-                  # Addition of genoNum[x][(x,x)] to count the number of individuals
-                  # with that specific genotype.
-                  # You can add frequencies and sizes through addition. There are two
-                  # sizes for both Aa carriers (0,1) and (1,0). Adding these can be done
-                  # as seen above.      
+                               "'AA', 'Aa', 'aa',"\
+                               "'AA_size', 'Aa_size', 'aa_size',"\
+                               "'F']"),
+                   sim.PyExec(r"row += [gen, "\
+                               "alleleFreq[0][0],"                             # A          \
+                               "alleleFreq[0][1],"                             # a          \
+                               "genoFreq[0][(0,0)],"                           # AA         \
+                               "genoFreq[0][(0,1)]+genoFreq[0][(1,0)],"        # Aa         \
+                               "genoFreq[0][(1,1)],"                           # aa         \
+                               "genoNum[0][(0,0)],"                            # AA_size    \
+                               "genoNum[0][(0,1)]+genoNum[0][(1,0)],"          # Aa_size    \
+                               "genoNum[0][(1,1)],"                            # aa_size    \
+                               "1.0-((genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/" # F          \
+                               "(2.0*alleleFreq[0][0]*alleleFreq[0][1]))"\
+                               "if alleleFreq[0][0] != 0.0 and alleleFreq[0][1]"\
+                               "!= 0.0 else 0.0]")
                    ],
         gen = gen
     )
@@ -277,20 +274,20 @@ if __name__ == '__main__':
             exit()
         
         print "  Running simulations..."
-        proposals = 0
+         = 0
         start_time = print_time = time.time()
-        while proposals < PROPOSALS:
+        while simulations < SIMULATIONS:
             row = simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
                                                    experiment.gen,
                                                    experiment.a, 
                                                    experiment.aa_fitness,   
                                                    experiment.aa_homogamy)['row']
             experiment.write([row])
-            proposals += 1
-            if time.time()-print_time > 60 or proposals == PROPOSALS:
-                rate = proposals*60./(time.time()-start_time)
-                print '  {proposals:,} proposals completed ' \
-                      '({rate:,.0f} proposals/min)'\
-                      ''.format(proposals=proposals, rate=rate)
+            simulations += 1
+            if time.time()-print_time > 60 or simulations == SIMULATIONS:
+                rate = simulations*60./(time.time()-start_time)
+                print '  {simulations:,} simulations completed ' \
+                      '({rate:,.0f} simulations/min)'\
+                      ''.format(simulations=simulations, rate=rate)
                 print_time = time.time()
     print '  Done.'
