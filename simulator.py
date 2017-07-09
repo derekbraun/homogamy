@@ -17,8 +17,8 @@
 DEBUG_MODE = False
 
 # Simulation Parameters
-SIMULATIONS = 1000
-aa_HOMOGAMY = 0.0               # This variable MUST be a global b/c this is 
+SIMULATIONS = 100
+aa_HOMOGAMY = 0.9               # This variable MUST be a global b/c this is 
                                 # the only way to get it into the deafChooser
                                 # generator function
                                 
@@ -33,6 +33,7 @@ import os
 import time
 import random
 import argparse
+import multiprocessing
 import simuOpt
 if DEBUG_MODE:
     PROPOSALS = 1
@@ -274,20 +275,37 @@ if __name__ == '__main__':
             exit()
         
         print "  Running simulations..."
-         = 0
-        start_time = print_time = time.time()
+    
+        def worker():
+                '''
+                    The worker function exists as a convenient way of passing
+                    simuAssortativeMatingWithFitness with its parameters to the 
+                    multiprocessing pool.
+                '''
+                return simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
+                                                        experiment.gen,
+                                                        experiment.a, 
+                                                        experiment.aa_fitness,   
+                                                        experiment.aa_homogamy)['row']
+        
+        simulations = 0
+        mp_chunk_size = cpu_count = multiprocessing.cpu_count()
+        pool = multiprocessing.Pool()
         while simulations < SIMULATIONS:
-            row = simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
-                                                   experiment.gen,
-                                                   experiment.a, 
-                                                   experiment.aa_fitness,   
-                                                   experiment.aa_homogamy)['row']
-            experiment.write([row])
-            simulations += 1
-            if time.time()-print_time > 60 or simulations == SIMULATIONS:
-                rate = simulations*60./(time.time()-start_time)
-                print '  {simulations:,} simulations completed ' \
-                      '({rate:,.0f} simulations/min)'\
-                      ''.format(simulations=simulations, rate=rate)
-                print_time = time.time()
+            start_time = time.time()
+            p = [pool.apply_async(worker) for i in range(mp_chunk_size)]
+            table = [item.get() for item in p]
+            experiment.write(table)
+            simulations += mp_chunk_size
+            rate = mp_chunk_size*60./(time.time()-start_time)
+            print '  {simulations:,} simulations completed ' \
+                  '({cpu_count} CPUs; {rate:,.1f} simulations/min)'\
+                  ''.format(simulations=simulations,
+                            rate=rate,
+                            cpu_count=cpu_count)
+            # mp_chunk_size is dynamically adjusted based on actual
+            # execution speed such that file writes occur once per minute.
+            mp_chunk_size = int(rate - rate%cpu_count)
+            if simulations + mp_chunk_size > SIMULATIONS:
+                mp_chunk_size = SIMULATIONS-simulations
     print '  Done.'
