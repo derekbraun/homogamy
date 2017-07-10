@@ -25,22 +25,25 @@ BUFF = '#e8d4a2'
 
 
 def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95, 
-                  num_of_bins=41, crop=0.998, format='{:,.0f}', rc=None):
+                  num_of_bins=41, crop=0.998, format='{:,.0f}',
+                  rc=None, rcfname=None):
     '''
         Plots a histogram with the two-tailed HPD region (default 95%) in a 
         different color. This coloring sets this routine apart from 
         pyplot.hist()
         
         Accepts:
-            filename    a filename for the histogram to be written
-            dist        a list of values
-            title       an optional title
-            xlabel      an optional xlabel
+            filename        a filename for the histogram to be written
+            dist            a list of values
+            title           an optional title
+            xlabel          an optional xlabel
             
-            hpd         optional hpd (default is 95%)
-            num_of_bins number of histogram bins, normally set to 41
-            crop        where you want the histogram to stop. best to leave alone
-            rc              rcparams file to load to set graph style.
+            hpd             optional hpd (default is 95%)
+            num_of_bins     number of histogram bins, normally set to 41
+            crop            where you want the histogram to stop. best to leave alone
+            rc              a rcparams dict. This takes precedence over
+                            rcfname.
+            rcfname         a rcparams file to load to set graph style.
             
         Saves a .pdf plot to filename. Doesn't return anything.
     '''
@@ -97,7 +100,7 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
         if not crop_max_bin_index and n >= crop_max_index:
             crop_max_bin_index = i
             break
-    with matplotlib.rc_context(fname=rc):
+    with matplotlib.rc_context(rc=rc, fname=rcfname):
         plt.clf()
         plt.figure()
         plt.subplot(111)
@@ -107,36 +110,34 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
                 facecolor=BUFF)
         if xlabel:
             plt.xlabel(xlabel)
-    
         # The ticks are crop_min, median, and crop_max
         tick_pos = [crop_min_bin_index, mean_bin_index, crop_max_bin_index]
         tick_labels = [format.format(crop_min), 'mean = ' + format.format(mean), 
                        format.format(crop_max)]
         plt.xticks(tick_pos, tick_labels)
-    
-        # turn off axis box, turn off y-axis, crop axes, and set ticks
+        # print and label hpd lines
+        plt.text(hpd_min_bin_index-1, max(hist), format.format(hpd_min),
+                    ha='right')
+        plt.axvline(hpd_min_bin_index, ls=':')
+        plt.text(hpd_max_bin_index+1, max(hist), format.format(hpd_max),
+                    ha='left')
+        plt.axvline(hpd_max_bin_index, ls=':')
+        if title:
+            plt.title(title)
+        # format plot: turn off axis box, turn off y-axis, crop axes,
+        # set tick visibility, set limits
         plt.box(on=None)
         ax = plt.axes()
         ax.yaxis.set_visible(False)
         ax.xaxis.set_ticks_position('bottom')
-        plt.xlim(crop_min_bin_index, crop_max_bin_index) 
-    
-        # print and label hpd lines
-        plt.text(hpd_min_bin_index-1, max(hist), format.format(hpd_min),
-                    ha='right')
-        plt.axvline(hpd_min_bin_index, ls=':',lw=2)
-        plt.text(hpd_max_bin_index+1, max(hist), format.format(hpd_max),
-                    ha='left')
-        plt.axvline(hpd_max_bin_index, ls=':',lw=2)
-        if title:
-            plt.title(title)
+        plt.xlim(crop_min_bin_index, crop_max_bin_index)        
         plt.grid(False)
         plt.savefig(filename, transparent=True)
         plt.close()
 
 
 def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None, 
-                   rc=None):
+                   rc=None, rcfname=None):
     '''
         Produces and writes a plot where each proposal is represented by its 
         own line.
@@ -151,9 +152,11 @@ def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             title           the plot title
             xlabel          x axis label string
             ylabel          y axis label string
-            rc              rcparams file to load to set graph style.
+            rc              a rcparams dict. This takes precedence over
+                            rcfname.
+            rcfname         a rcparams file to load to set graph style.
     '''
-    with matplotlib.rc_context(fname=rc):
+    with matplotlib.rc_context(rc=rc, fname=rcfname):
         plt.clf()
         fig = plt.figure()
         if title is not None:
@@ -179,7 +182,7 @@ def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
 
 
 def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None, 
-                 gradients=32, scaling=1.0, rc=None):
+                 gradients=32, scaling=1.0, rc=None, rcfname=None):
     '''
         Produces a contour plot.
         The median values and 95% credible intervals are also represented 
@@ -197,9 +200,10 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
                             vector file.
             scaling         scaling factor used for creating subplots,
                             where the text and lines need to be scaled down.
-            rc              rcparams file to load to set graph style.
+            rc              a rcparams dict. This takes precedence over
+                            rcfname.
+            rcfname         a rcparams file to load to set graph style.
     '''
-    #_set_plot_params(use, scaling)
     # calculate gradient
     Y_upper_cis = []
     Y_medians = []
@@ -228,13 +232,13 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             Ylgs.append(Y[lidx])
         Ygrads.append((Yugs,Ylgs))
 
-    with matplotlib.rc_context(fname=rc):
+    with matplotlib.rc_context(rc=rc, fname=rcfname):
         plt.clf()
         fig = plt.figure()
         if title is not None:
             plt.title(title)
         ax = fig.add_subplot(111)
-        ax.set_xlim(min(X),max(X))
+        #ax.set_xlim(min(X),max(X))  does this really do anything? 
         if xlabel is not None:
             ax.set_xlabel(xlabel)
         if ylabel is not None:
@@ -285,54 +289,51 @@ if __name__ == '__main__':
     else:
         print '  File not found.'
     
-    
-    if args.contour_plot:
-        title='N={:,} fitness={:.1f} homogamy={:.1f}'\
+    title='pop size={:,}    fitness={:.1f}    homogamy={:.1f}    n={:,} simulations'\
           ''.format(int(e.constant_pop_size),
                     float(e.aa_fitness),
-                    float(e.aa_homogamy))
+                    float(e.aa_homogamy),
+                    len(e.data[0]))
+    rc = {'axes.titlesize': 10}
+    
+    if args.contour_plot:
         X = e.select('gen',0)
-        for rc in ['print.rc']:
+        for rcfname in ['print.rc']:
             for var in ['a','aa','F']:
                 filename = os.path.splitext(args.filename)[0] + \
-                           '.contour_plot.{var}.for_{rc}.pdf'.format(**locals())
+                           '.contour_plot.{var}.{rcfname}.pdf'.format(**locals())
                 Ya = e.select(var)
                 contour_plot(filename, X, Ya,
                              title=title,
                              xlabel='Generations',
                              ylabel=var,
-                             rc=rc)
+                             rc=rc,
+                             rcfname=rcfname)
                 print "  Writing '{}'".format(filename) 
     if args.multiline_plot:
-        title='N={:,} fitness={:.1f} homogamy={:.1f}'\
-          ''.format(int(e.constant_pop_size),
-                    float(e.aa_fitness),
-                    float(e.aa_homogamy))
         X = e.select('gen',0)
-        for rc in ['print.rc']:
+        for rcfname in ['print.rc']:
             for var in ['a','aa','F']:
                 filename = os.path.splitext(args.filename)[0] + \
-                           '.multiline_plot.{var}.for_{rc}.pdf'.format(**locals())
+                           '.multiline_plot.{var}.{rcfname}.pdf'.format(**locals())
                 Ya = e.select(var)
                 multiline_plot(filename, X, Ya,
                                title=title,
                                xlabel='Generations',
                                ylabel=var,
-                               rc=rc)
+                               rc=rc,
+                               rcfname=rcfname)
                 print "  Writing '{}'".format(filename)
     if args.histogram:
-        title='N={:,} fitness={:.1f} homogamy={:.1f}'\
-          ''.format(int(e.constant_pop_size),
-                    float(e.aa_fitness),
-                    float(e.aa_homogamy))
-        for rc in ['print.rc']:
+        for rcfname in ['print.rc']:
             for var in ['a','aa','F']:
                 filename = os.path.splitext(args.filename)[0] + \
-                           '.histogram.{var}.for_{rc}.pdf'.format(**locals())
+                           '.histogram.{var}.{rcfname}.pdf'.format(**locals())
                 dist = e.select(var)[-1]
                 hist_with_hpd(filename, dist,
                                title=title,
                                xlabel=var,
-                               rc=rc)
+                               rc=rc,
+                               rcfname=rcfname)
                 print "  Writing '{}'".format(filename)
     print "Done."

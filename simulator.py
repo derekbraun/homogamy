@@ -18,13 +18,13 @@ DEBUG_MODE = False
 
 # Simulation Parameters
 SIMULATIONS = 100
-aa_HOMOGAMY = 0.9               # This variable MUST be a global b/c this is 
+aa_HOMOGAMY = 0.0               # This variable MUST be a global b/c this is 
                                 # the only way to get it into the deafChooser
                                 # generator function
                                 
 import fileio
 experiment = fileio.Experiment( constant_pop_size   = 10000,
-                                aa_fitness          = 1.0,
+                                aa_fitness          = 20.0,
                                 aa_homogamy         = aa_HOMOGAMY,
                                 a                   = 0.01304,
                                 gen                 = 100)
@@ -48,19 +48,19 @@ def deafChooser(pop, subPop):
         this generator but I would like to pass the percentage of
         deaf-deaf marriages (aa_homogamy).
     
-        Upon initialization, this chooser pairs up (marries) couples, resulting
-        in a monogamous mating scheme. Deaf are paired up first, so as to achieve
-        the desired percentage of deaf-deaf marriages.
+        Upon initialization, this chooser pairs up (marries) couples,
+        resulting in a monogamous mating scheme. Deaf are paired up first,
+        so as to achieve the desired percentage of deaf-deaf marriages.
     
-        Each time this generator is called, it returns a random couple. The
-        couples do not change (there is no divorce or death). Implemented this 
-        way, roughly 80% of couples will have children, and roughly 20% will have
-        more than one child.
+        Each time this generator is called, it returns a random couple.
+        The couples do not change within a generation (there is no divorce or
+        death). Implemented this way, roughly 80% of couples will have
+        children, and roughly 20% will have more than one child.
     
-        A monogamous mating scheme isn't entirely representative of human behavior,
-        but it's much closer to reality than an entirely random mating scheme where
-        nearly every child will have different parents and there are almost no full
-        siblings.
+        A monogamous mating scheme isn't entirely representative of human 
+        behavior, but it's much closer to reality than an entirely random
+        mating scheme where nearly every child will have different parents and
+        there are almost no full siblings.
     '''
     all_males = []
     all_females = []
@@ -132,6 +132,8 @@ def deafChooser(pop, subPop):
         woman = random.choice(all_females)
         couples += [(man, woman)]
 
+    # This is what's called whenever the generator function is called,
+    # after the first time.
     # Hey, you! You're having a kid today!
     while True:
         yield random.choice(couples)

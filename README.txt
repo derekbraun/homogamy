@@ -38,6 +38,19 @@ stats.py        Performs statistical analyses comparing data files created by
 
 
 
+TO-DO LIST
+
+1.              Fix deafChooser in simulator.py to incorporate fitness,
+                defined as the relative number of children (major)
+                
+2.              Fix grapher.py to incorporate both rc and rcfiles (easy)
+
+3.              Fix grapher.py to incorporate scaling (e.g. per 100,000)
+                Also fix label formatting.
+
+4.              Adjust grapher.py output (label sizes, axis lines, etc).
+
+
 USEFUL REFERENCES FOR simuPOP OBJECTS
 
 This is a list of simuPOP objects and methods that are particularly important
