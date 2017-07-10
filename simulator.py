@@ -24,7 +24,7 @@ aa_HOMOGAMY = 0.9               # This variable MUST be a global b/c this is
                                 
 import fileio
 experiment = fileio.Experiment( constant_pop_size   = 10000,
-                                aa_fitness          = 1.0,
+                                aa_fitness          = 0.5,
                                 aa_homogamy         = aa_HOMOGAMY,
                                 a                   = 0.01304,
                                 gen                 = 100)

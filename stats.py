@@ -26,14 +26,25 @@ def foo:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__,
                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('filename',
-                        help = 'filename for data file')
-    parser.add_argument('-s','--sample arg',action='store_true',
-                        help = 'sample argument')
+    parser.add_argument('filename_one',
+                        help = 'filename for first data file')
+    parser.add_argument('filename_two',
+                        help = 'filename for second data file')
+    parser.add_argument('-s','--mann_whitney',action='store_true',
+    					
+                        help = 'perform the mann-whitney tests and get stats')
     args=parser.parse_args()
     
-    if os.path.isfile(args.filename):
-        e = fileio.Experiment(args.filename)
-        print '  Reading {}'.format(args.filename)
+    if os.path.isfile(args.filename_one) and os.path.isfile(args.filename_two):
+        eOne = fileio.Experiment(args.filename_one)
+        eTwo = fileio.Experiment(args.filename_two)
+        print '  Reading {}'.format(args.filename_one) + '& Reading {}'.format(args.filename_one)
+    elif os.path.isfile(args.filename_two) and not(os.path.isfile(args.filename_one)):
+        print '  File one not found.'	
+    elif os.path.isfile(args.filename_one) and not(os.path.isfile(args.filename_two)):
+        print '  File two not found.'
     else:
-        print '  File not found.'
+    	print '  Both files not found.'
+        
+    if args.mann_whitney
+    	
