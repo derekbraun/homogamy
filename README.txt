@@ -41,14 +41,19 @@ stats.py        Performs statistical analyses comparing data files created by
 TO-DO LIST
 
 1.              Fix deafChooser in simulator.py to incorporate fitness,
-                defined as the relative number of children (major)
-                
-2.              Fix grapher.py to incorporate both rc and rcfiles (easy)
+                defined as the relative number of children (this is major)
 
+2.              Run simulations! Parameters:
+                    popsize 20,000, 0% homogamy, normal fitness
+                    popsize 20,000, 90% homogamy, normal fitness
+                    popsize 20,000, 0% homogamy, 2x fitness
+                    popsize 20,000, 90% homogamy, 2x fitness
+                    
+                    same again for popsize 100,000
+                    
 3.              Fix grapher.py to incorporate scaling (e.g. per 100,000)
                 Also fix label formatting.
 
-4.              Adjust grapher.py output (label sizes, axis lines, etc).
 
 
 USEFUL REFERENCES FOR simuPOP OBJECTS

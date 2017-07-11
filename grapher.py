@@ -57,17 +57,17 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
     hist, bin_edges = numpy.histogram(dist, bins=num_of_bins)
     # find exact HPD values
     dist.sort()
-    hpd_min_index = int((1-hpd)/2.*len(dist))
+    hpd_min_index = int((1.-hpd)/2.*len(dist))
     hpd_min = dist[hpd_min_index]
-    mean = numpy.mean(dist)
+    median = numpy.median(dist)
     for i, datum in enumerate(dist):
-        if datum >= mean:
-            mean_index = i
+        if datum >= median:
+            median_index = i
             break
-    hpd_max_index = int((1+hpd)/2.*len(dist))
+    hpd_max_index = int((1.+hpd)/2.*len(dist))
     hpd_max = dist[hpd_max_index]
-    crop_min_index = int((1-crop)/2.*len(dist))
-    crop_max_index = int((1+crop)/2.*len(dist))
+    crop_min_index = int((1.-crop)/2.*len(dist))
+    crop_max_index = int((1.+crop)/2.*len(dist))
     crop_min = dist[crop_min_index]
     crop_max = dist[crop_max_index]
     
@@ -78,7 +78,7 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
     crop_max_bin_index = False
     hpd_min_bin_index = False
     hpd_max_bin_index = False
-    mean_bin_index = False
+    median_bin_index = False
     sig_bars = []
     insig_bars = []
     n = 0
@@ -86,8 +86,8 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
         n += bin
         if not crop_min_bin_index and n > crop_min_index:
             crop_min_bin_index = i
-        if hpd_min_index < n < hpd_max_index:
-            if not hpd_min_bin_index:
+        if hpd_min_index <= n <= hpd_max_index:
+            if hpd_min_bin_index is False:
                 hpd_min_bin_index = i
             hpd_max_bin_index = i+1
             sig_bars.append(bin)
@@ -95,8 +95,8 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
         else:
             sig_bars.append(0)
             insig_bars.append(bin)
-        if not mean_bin_index and n >= mean_index:
-            mean_bin_index = i            
+        if median_bin_index is False and n >= median_index:
+            median_bin_index = i            
         if not crop_max_bin_index and n >= crop_max_index:
             crop_max_bin_index = i
             break
@@ -111,17 +111,14 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
         if xlabel:
             plt.xlabel(xlabel)
         # The ticks are crop_min, median, and crop_max
-        tick_pos = [crop_min_bin_index, mean_bin_index, crop_max_bin_index]
-        tick_labels = [format.format(crop_min), 'mean = ' + format.format(mean), 
-                       format.format(crop_max)]
+        tick_pos = [hpd_min_bin_index-0.5, median_bin_index, hpd_max_bin_index-0.5]
+        tick_labels = ['{:.3f}'.format(hpd_min), '{:.3f}'.format(median), 
+                       '{:.3f}'.format(hpd_max)]
         plt.xticks(tick_pos, tick_labels)
         # print and label hpd lines
-        plt.text(hpd_min_bin_index-1, max(hist), format.format(hpd_min),
-                    ha='right')
-        plt.axvline(hpd_min_bin_index, ls=':')
-        plt.text(hpd_max_bin_index+1, max(hist), format.format(hpd_max),
-                    ha='left')
-        plt.axvline(hpd_max_bin_index, ls=':')
+        plt.axvline(hpd_min_bin_index-0.5, ls=':')
+        plt.axvline(median_bin_index, ls=':')
+        plt.axvline(hpd_max_bin_index-0.5, ls=':')
         if title:
             plt.title(title)
         # format plot: turn off axis box, turn off y-axis, crop axes,
@@ -130,7 +127,7 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
         ax = plt.axes()
         ax.yaxis.set_visible(False)
         ax.xaxis.set_ticks_position('bottom')
-        plt.xlim(crop_min_bin_index, crop_max_bin_index)        
+        #plt.xlim(crop_min_bin_index, crop_max_bin_index)
         plt.grid(False)
         plt.savefig(filename, transparent=True)
         plt.close()
@@ -162,7 +159,8 @@ def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
         if title is not None:
             plt.title(title)
         ax = fig.add_subplot(111)
-        ax.set_xlim(min(X),max(X))
+        ax.set_xlim(0,max(X))       # necessary to have the graph start at 0,0
+        #ax.set_ylim(bottom=0, auto=True)       # necessary to have the graph start at 0,0
         if xlabel is not None:
             ax.set_xlabel(xlabel)
         if ylabel is not None:
@@ -238,7 +236,8 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
         if title is not None:
             plt.title(title)
         ax = fig.add_subplot(111)
-        #ax.set_xlim(min(X),max(X))  does this really do anything? 
+        ax.set_xlim(0,max(X))       # necessary to have the graph start at 0,0
+        ax.set_ylim(0,max(Y))       # necessary to have the graph start at 0,0
         if xlabel is not None:
             ax.set_xlabel(xlabel)
         if ylabel is not None:
@@ -250,15 +249,13 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             ax.fill_between(X, Yg[0], Yg[1], color=BUFF, alpha=1./(gradients/4.))
         ax.plot(X, Y_upper_cis, color=BLUE)
         ax.text(max(X)*1.02, Y_upper_cis[-1], '{:.2f}'.format(Y_upper_cis[-1]), 
-                va='bottom', ha='left')
+                va='center', ha='left')
         ax.plot(X, Y_medians, color=BLUE)
-        ax.text(max(X)*1.02, max(Y_medians), '{:.2f}'.format(Y_medians[-1]), 
-                va='bottom', ha='left')
+        ax.text(max(X)*1.02, Y_medians[-1], '{:.2f}'.format(Y_medians[-1]), 
+                va='center', ha='left')
         ax.plot(X, Y_lower_cis, color=BLUE)
         ax.text(max(X)*1.02, Y_lower_cis[-1], '{:.2f}'.format(Y_lower_cis[-1]), 
-                va='top', ha='left')
-        ax.grid(False)  
-        #_adjustFigAspect(fig)
+                va='center', ha='left')
         plt.savefig(filename, transparent=True)
         plt.close()
 
@@ -272,7 +269,7 @@ if __name__ == '__main__':
     parser.add_argument('filename',
                         help = 'filename for data file')
     parser.add_argument('-c','--contour_plot',action='store_true', 
-                        default=True,
+                        default=False,
                         help = 'create contour plots')
     parser.add_argument('-m','--multiline_plot',action='store_true', 
                         default=False,
