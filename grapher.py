@@ -160,7 +160,6 @@ def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             plt.title(title)
         ax = fig.add_subplot(111)
         ax.set_xlim(0,max(X))       # necessary to have the graph start at 0,0
-        #ax.set_ylim(bottom=0, auto=True)       # necessary to have the graph start at 0,0
         if xlabel is not None:
             ax.set_xlabel(xlabel)
         if ylabel is not None:
@@ -168,19 +167,16 @@ def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
                 ax.set_ylabel(ylabel, rotation=0)
             else:
                 ax.set_ylabel(ylabel)
-        ax.plot(X, Ya, color=BLUE, alpha=20./len(Ya[0]))  # adjust the numerator to 
+        ax.plot(X, Ya, color=BLUE, alpha=50./len(Ya[0]))  # adjust the numerator to 
                                                           # get the appropriate line
                                                           # darkness
-        #plt.yticks(numpy.arange(0, 2.6, 0.5))
-        #plt.xticks(numpy.arange(start_year, start_year + 20 * gen + 1, 80))        
-        #_adjustFigAspect(fig)
         plt.savefig(filename, transparent=True)
         plt.close()   
 
 
 
 def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None, 
-                 gradients=32, scaling=1.0, rc=None, rcfname=None):
+                 gradients=32, format='{:.3%}', rc=None, rcfname=None):
     '''
         Produces a contour plot.
         The median values and 95% credible intervals are also represented 
@@ -196,8 +192,6 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             gradients       the number of gradients. More gradients means
                             a smoother density plot at the cost of a larger 
                             vector file.
-            scaling         scaling factor used for creating subplots,
-                            where the text and lines need to be scaled down.
             rc              a rcparams dict. This takes precedence over
                             rcfname.
             rcfname         a rcparams file to load to set graph style.
@@ -248,13 +242,15 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
         for i, Yg in enumerate(Ygrads):
             ax.fill_between(X, Yg[0], Yg[1], color=BUFF, alpha=1./(gradients/4.))
         ax.plot(X, Y_upper_cis, color=BLUE)
-        ax.text(max(X)*1.02, Y_upper_cis[-1], '{:.2f}'.format(Y_upper_cis[-1]), 
+        #ax.set_yticklabels([format.format(x) for x in ax.get_yticks().tolist()]) 
+        ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter())
+        ax.text(max(X)*1.02, Y_upper_cis[-1], format.format(Y_upper_cis[-1]), 
                 va='center', ha='left')
         ax.plot(X, Y_medians, color=BLUE)
-        ax.text(max(X)*1.02, Y_medians[-1], '{:.2f}'.format(Y_medians[-1]), 
+        ax.text(max(X)*1.02, Y_medians[-1], format.format(Y_medians[-1]), 
                 va='center', ha='left')
         ax.plot(X, Y_lower_cis, color=BLUE)
-        ax.text(max(X)*1.02, Y_lower_cis[-1], '{:.2f}'.format(Y_lower_cis[-1]), 
+        ax.text(max(X)*1.02, Y_lower_cis[-1], format.format(Y_lower_cis[-1]), 
                 va='center', ha='left')
         plt.savefig(filename, transparent=True)
         plt.close()
