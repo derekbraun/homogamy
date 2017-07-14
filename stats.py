@@ -6,9 +6,9 @@
     Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek
     Braun* (*derek.braun@gallaudet.edu)
     
-    Performs statistical analyses comparing data files created by Simulator.py.
-    Last updated: 23-Jun-2017 by Derek Braun
-    '''
+    Performs statistical analyses comparing data files created by simulator.py.
+    Last updated: 11-Jul-2017 by Maggie Gray
+'''
 
 import argparse
 import numpy
@@ -40,16 +40,16 @@ if __name__ == '__main__':
         exit()                        
 
     for file in args.filenames:
-    	
-    	# Checking to see if each individual file is actually an existing file
-    	if os.path.isfile(file):
-    		e = fileio.Experiment(file)
-    		x = e.select(args.fields)[-1]	# The array of data at the final point of time
-    		print '\n  Reading {}'.format(file)
-    	else:
-    		print "\n  File {} not found.".format(file)
-    		exit()
-    		     
+        
+        # Checking to see if each individual file is actually an existing file
+        if os.path.isfile(file):
+            e = fileio.Experiment(file)
+            x = e.select(args.fields)[-1]    # The array of data at the final point of time
+            print '\n  Reading {}'.format(file)
+        else:
+            print "\n  File {} not found.".format(file)
+            exit()
+                 
         # Finding the mean and stdev
         f_mean_stdev = "{} ± {}".format(numpy.mean(x), numpy.std(x))
         
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     fieldsList = []
     i = 0
     while i < len(args.filenames):
-    	f = fileio.Experiment(args.filenames[i]).select(args.fields)[-1]
+        f = fileio.Experiment(args.filenames[i]).select(args.fields)[-1]
         fieldsList.append(f)
         i += 1
         
@@ -76,7 +76,7 @@ if __name__ == '__main__':
         print "  Mann-Whitney U:  {}".format(statistic)
         print "  p-value:  {}".format(pval)
     elif len(args.filenames) > 2:
-    	
+        
         statistic, pval = stats.mstats.kruskal(fieldsList)
         print "\n  ** Ran comparisons **"
         print "  filenames:  {}".format(args.filenames)

@@ -17,16 +17,17 @@
 DEBUG_MODE = False
 
 # Simulation Parameters
-SIMULATIONS = 100
-aa_HOMOGAMY = 0.0               # This variable MUST be a global b/c this is 
-                                # the only way to get it into the deafChooser
+SIMULATIONS = 1000
+aa_HOMOGAMY = 0.9               # These variables MUST be globals b/c this is 
+aa_FITNESS = 1.                 # the only way to get it into the customChooser
                                 # generator function
                                 
 import fileio
-experiment = fileio.Experiment( constant_pop_size   = 10000,
-                                aa_fitness          = 20.0,
+experiment = fileio.Experiment( constant_pop_size   = 100000,
+                                aa_fitness          = aa_FITNESS,
                                 aa_homogamy         = aa_HOMOGAMY,
-                                a                   = 0.01304,
+                                #a                   = 0.01304,
+                                a                   = 0.1,
                                 gen                 = 100)
 
 import os
@@ -41,104 +42,107 @@ else:
     simuOpt.setOptions(optimized=True, numThreads=0, quiet=True)
 import simuPOP as sim
 
-def deafChooser(pop, subPop):
+def customChooser(pop, subPop):
     '''
-        Generator function which chooses parents. 
-        I don't know if it's possible to pass additional parameters to 
-        this generator but I would like to pass the percentage of
-        deaf-deaf marriages (aa_homogamy).
+        Generator function which chooses parents.
     
-        Upon initialization, this chooser pairs up (marries) couples,
-        resulting in a monogamous mating scheme. Deaf are paired up first,
-        so as to achieve the desired percentage of deaf-deaf marriages.
-    
-        Each time this generator is called, it returns a random couple.
-        The couples do not change within a generation (there is no divorce or
-        death). Implemented this way, roughly 80% of couples will have
-        children, and roughly 20% will have more than one child.
-    
-        A monogamous mating scheme isn't entirely representative of human 
-        behavior, but it's much closer to reality than an entirely random
-        mating scheme where nearly every child will have different parents and
-        there are almost no full siblings.
+        Upon initialization, this chooser mates couples in a monogamous 
+        mating scheme.
+        
+        The algorithm goes through each eligible person
+        listwise. If that person is deaf, that person either marries deaf
+        or hearing based on the probability in aa_HOMOGAMY. If either
+        parent is dead, they have a number of children based on the 
+        fitness in aa_FITNESS (non-integers are handled with a randomizer).
     '''
-    all_males = []
-    all_females = []
-    hearing_males = []
-    hearing_females = []
+    
+    def mate_with_fitness(male, female):
+        '''
+            Mates a couple. Randomly creates a number of entries in the
+            final list (representing number of children) reflecting
+            their reproductive fitness. Non-integer number of children
+            are handled by using a randomizer.
+        '''
+        r = float(aa_FITNESS)
+        l = []
+        while r >= 1:
+            l += [(male, female)]
+            r -= 1
+        if random.random() < r:
+            l += [(male, female)]
+        return l
+    
+    
+    def output_diagnostics(couples):
+        '''
+            Outputs some summary statistics about the final mating pool.
+            Helps with diagnostics
+        '''
+        ddm = 0.
+        adm = 0.
+        for male, female in couples:
+            if list(pop.individual(male).genotype()) == [1, 1] \
+                and list(pop.individual(female).genotype()) == [1, 1]:
+                ddm += 1
+            if list(pop.individual(male).genotype()) == [1, 1] \
+                or list(pop.individual(female).genotype()) == [1, 1]:
+                adm += 1
+        print 'homogamy = {:.1%}   deaf marriages = {:.1%}' \
+              ''.format(ddm/adm, adm/len(couples))
+        
+        
     deaf_males = []
     deaf_females = []
+    remaining_males = []
+    remaining_females = []
     couples = []
     
     # bin individuals
     for i in range(pop.subPopSize(subPop)):
         person = pop.individual(i)
         if person.sex() == sim.MALE:
-            all_males.append(i)
             if list(person.genotype()) == [1, 1]:
                 deaf_males.append(i)
             else:
-                hearing_males.append(i)
+                remaining_males.append(i)
         elif person.sex() == sim.FEMALE:
-            all_females.append(i)
             if list(person.genotype()) == [1, 1]:
                 deaf_females.append(i)
             else:
-                hearing_females.append(i)
-        else:
-            print "simuPOP gender dysphoria error. Send scathing email to Bo Peng"
+                remaining_females.append(i)
 
-
-    # pair off deaf individuals first, to achieve the desired percentage
-    # of deaf-deaf marriage
-    random.shuffle(deaf_females)
-    random.shuffle(deaf_males)
-    random.shuffle(hearing_females)
-    random.shuffle(hearing_males)
-    while len(deaf_females) > 0 and len(deaf_males) > 0 and len(hearing_males) > 0:
+    # pair off deaf individuals first
+    target = aa_HOMOGAMY * (len(deaf_males) + len(deaf_females))
+    while len(deaf_females) and len(deaf_males) and len(remaining_males) \
+        and len(couples) < target:
         woman = deaf_females.pop()
-        if random.random() < aa_HOMOGAMY:
-            man = deaf_males.pop()
-            couples += [(man, woman)]
-        else:
-            man = hearing_males.pop()
-            couples += [(man, woman)]
-    
-    # move remaining deaf people into hearing (now general) bins, and reshuffle
-    hearing_males += deaf_males        
-    hearing_females += deaf_females
-    random.shuffle(hearing_males)
-    random.shuffle(hearing_females)
-    
-    while len(hearing_females) > 0 and len(hearing_males) > 0:
-        woman = hearing_females.pop()
-        man = hearing_males.pop()
-        couples += [(man, woman)]
-        
-    # marry off remaining un-married, mostly hearing people 
-    # (let's just say that this represents second marriages and out-of-wedlock
-    # children. More importantly, why are we doing this? 
-    # This is needed to nullify the slight advantage that we
-    # just gave deaf people by making sure that every single deaf person was
-    # married, which we didn't do for hearing people. Without this extra code,
-    # in small populations, deaf people will have a slight fitness advantage.
-    
-    while len(hearing_females) > 0:
-        women = hearing_females.pop()
-        man = random.choice(all_males)
-        couples += [(man, woman)]
-    while len(hearing_males) > 0:
-        man = hearing_males.pop()
-        woman = random.choice(all_females)
-        couples += [(man, woman)]
+        man = deaf_males.pop()
+        couples += mate_with_fitness(man, woman)
 
-    # This is what's called whenever the generator function is called,
-    # after the first time.
-    # Hey, you! You're having a kid today!
+
+    # move remaining deaf people into remaining bins, and shuffle
+    remaining_males += deaf_males        
+    remaining_females += deaf_females
+    random.shuffle(remaining_males)
+    random.shuffle(remaining_females)
+    
+    while len(remaining_females) and len(remaining_males):
+        woman = remaining_females.pop()
+        man = remaining_males.pop()
+        if list(pop.individual(man).genotype()) == [1, 1] \
+            or list(pop.individual(woman).genotype()) == [1, 1]:
+            couples += mate_with_fitness(man, woman)
+        else:
+            couples += [(man, woman)]
+    
+    
+    output_diagnostics(couples)
+    
+    # This is what's called whenever the generator function is called.
     while True:
         yield random.choice(couples)
 
-        
+
 def simuAssortativeMatingWithFitness(constant_pop_size, gen, a, 
                                     aa_fitness, aa_homogamy):
     '''
@@ -159,15 +163,9 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a,
         Adopted from: http://simupop.sourceforge.net/Cookbook/AssortativeMating
     '''             
     sim.setRNG(random.seed(sim.getRNG().seed()))    
-    pop = sim.Population(constant_pop_size, loci=[1], infoFields=['fitness'])
+    pop = sim.Population(constant_pop_size, loci=[1])
     pop.dvars().headers = [] 
     pop.dvars().row = []
-    pop.setVirtualSplitter(sim.GenotypeSplitter(loci=[0], alleles=[[0,0,0,1],[1,1]]))
-    # Creates two virtual subpopulations needed in order to define a mating 
-    # scheme: 
-    #   Note: allele definitions are _unphased_ so (0,1) and (1,0) are equivalent
-    #   alleles=[0,0,0,1] are individuals with 00 or 01 (AA/Aa)
-    #   alleles=[1,1] are individuals with 11 (aa)
     pop.evolve(
         initOps= [sim.InitSex(),
                   # Assigns individuals randomly to be male or female.
@@ -176,25 +174,9 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a,
                   # selected.
                   sim.InitGenotype(freq=[1-a, a])
                   ],
-        preOps = [sim.MapSelector(loci=[0], fitness={(0,0):1,
-                                                 (0,1):1,
-                                                 (1,1):aa_fitness})
-                  # Assigns fitness values to individuals with different
-                  # genotypes. This is stored in a field called 'fitness'
-                  # by default, which is then applied by the appropriate
-                  # mating scheme, also by default.
-                  # Fitness in this case is relative fitness and is applied 
-                  # during the mating scheme. Some mating schemes do not 
-                  # support fitness, so check the documentation!
-                  # If fitness is used, _all_ individuals must be assigned a 
-                  # fitness or those with no assignment will be calculated as
-                  # having zero fitness and will be discarded during the mating
-                  # scheme.
-                  ],
         matingScheme = sim.HomoMating(
-                        chooser = sim.PyParentsChooser(deafChooser),
+                        chooser = sim.PyParentsChooser(customChooser),
                         generator = sim.OffspringGenerator(sim.MendelianGenoTransmitter())),
-                    
         postOps = [sim.Stat(alleleFreq=[0], genoFreq=[0]), 
                    sim.PyExec(r"headers += ['gen','A', 'a',"\
                                "'AA', 'Aa', 'aa',"\

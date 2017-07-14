@@ -70,7 +70,7 @@ pop.dvars(sp).alleleFreq[locus][allele]     the allele frequency at
                                             locus [locus] and allele [allele]
                                             for subpopulation sp. Note that
                                             these are dicts, not lists.
-pop.individuals                             an iterable to iterate through each
+pop.individuals()                           an iterable to iterate through each
                                             individual in a population. Useful
                                             for either getting or setting
                                             attributes for each individual.
