@@ -18,16 +18,15 @@ DEBUG_MODE = False
 
 # Simulation Parameters
 SIMULATIONS = 1000
-aa_HOMOGAMY = 0.9               # These variables MUST be globals b/c this is 
-aa_FITNESS = 1.                 # the only way to get it into the customChooser
+aa_HOMOGAMY = 0.0               # These variables MUST be globals b/c this is 
+aa_FITNESS = 1.0                # the only way to get it into the customChooser
                                 # generator function
                                 
 import fileio
-experiment = fileio.Experiment( constant_pop_size   = 100000,
+experiment = fileio.Experiment( constant_pop_size   = 10000,
                                 aa_fitness          = aa_FITNESS,
                                 aa_homogamy         = aa_HOMOGAMY,
-                                #a                   = 0.01304,
-                                a                   = 0.1,
+                                a                   = 0.01304,
                                 gen                 = 100)
 
 import os
@@ -56,6 +55,22 @@ def customChooser(pop, subPop):
         fitness in aa_FITNESS (non-integers are handled with a randomizer).
     '''
     
+    def is_deaf(i):
+        '''
+            Identifies whether an individual is deaf, based on its
+            genotype.
+            
+            Accepts:
+            i               the individual's index
+        
+            Returns True or False
+        '''
+        if list(pop.individual(i).genotype()) == [1, 1]:
+            return True
+        else:
+            return False
+            
+            
     def mate_with_fitness(male, female):
         '''
             Mates a couple. Randomly creates a number of entries in the
@@ -63,34 +78,40 @@ def customChooser(pop, subPop):
             their reproductive fitness. Non-integer number of children
             are handled by using a randomizer.
         '''
-        r = float(aa_FITNESS)
-        l = []
-        while r >= 1:
-            l += [(male, female)]
-            r -= 1
-        if random.random() < r:
-            l += [(male, female)]
-        return l
+        
+        if is_deaf(man) or is_deaf(woman):
+            r = float(aa_FITNESS)
+            l = []
+            while r >= 1:
+                l += [(man, woman)]
+                r -= 1
+            if random.random() < r:
+                l += [(man, woman)]
+            return l
+        else:
+            return [(man, woman)]
     
     
     def output_diagnostics(couples):
         '''
             Outputs some summary statistics about the final mating pool.
-            Helps with diagnostics
+            Helps with troubleshooting.
         '''
         ddm = 0.
-        adm = 0.
-        for male, female in couples:
-            if list(pop.individual(male).genotype()) == [1, 1] \
-                and list(pop.individual(female).genotype()) == [1, 1]:
+        adi = 0.
+        adi = 0.
+        for man, woman in couples:
+            if is_deaf(man) and is_deaf(woman):
                 ddm += 1
-            if list(pop.individual(male).genotype()) == [1, 1] \
-                or list(pop.individual(female).genotype()) == [1, 1]:
-                adm += 1
-        print 'homogamy = {:.1%}   deaf marriages = {:.1%}' \
-              ''.format(ddm/adm, adm/len(couples))
+            if is_deaf(man):
+                adi += 1
+            if is_deaf(woman):
+                adi += 1
+        print 'homogamy = {:.1%}   deaf-deaf marriages = {:,d} ({:.1%})' \
+              ''.format(2*ddm/adi, ddm, ddm/len(couples))
         
-        
+    all_males = []
+    all_females = []
     deaf_males = []
     deaf_females = []
     remaining_males = []
@@ -100,25 +121,20 @@ def customChooser(pop, subPop):
     # bin individuals
     for i in range(pop.subPopSize(subPop)):
         person = pop.individual(i)
-        if person.sex() == sim.MALE:
-            if list(person.genotype()) == [1, 1]:
-                deaf_males.append(i)
-            else:
-                remaining_males.append(i)
-        elif person.sex() == sim.FEMALE:
-            if list(person.genotype()) == [1, 1]:
-                deaf_females.append(i)
-            else:
-                remaining_females.append(i)
-
-    # pair off deaf individuals first
-    target = aa_HOMOGAMY * (len(deaf_males) + len(deaf_females))
-    while len(deaf_females) and len(deaf_males) and len(remaining_males) \
-        and len(couples) < target:
+        if pop.individual(i).sex() == sim.MALE:
+            all_males.append(i)
+            deaf_males.append(i) if is_deaf(i) else remaining_males.append(i)
+        elif pop.individual(i).sex() == sim.FEMALE:
+            all_females.append(i)
+            deaf_females.append(i) if is_deaf(i) else remaining_females.append(i)
+    
+    # calculate how many deaf-deaf marriages we need, then marry them off
+    target = aa_HOMOGAMY * (len(deaf_females) + len(deaf_males))//2
+    while len(deaf_females) > 0 and len(deaf_males) > 0 and target > 0:
         woman = deaf_females.pop()
         man = deaf_males.pop()
         couples += mate_with_fitness(man, woman)
-
+        target -= 1
 
     # move remaining deaf people into remaining bins, and shuffle
     remaining_males += deaf_males        
@@ -126,17 +142,24 @@ def customChooser(pop, subPop):
     random.shuffle(remaining_males)
     random.shuffle(remaining_females)
     
+    
+    # mate off the rest. if no mate exist, then choose a random mate from
+    # the overall population. This makes sure that every single allele in the 
+    # gene pool is passed down equitably. This last step is critical, because 
+    # even, a subtle loss of alleles has an observable long-term influence.
+    
     while len(remaining_females) and len(remaining_males):
-        woman = remaining_females.pop()
-        man = remaining_males.pop()
-        if list(pop.individual(man).genotype()) == [1, 1] \
-            or list(pop.individual(woman).genotype()) == [1, 1]:
-            couples += mate_with_fitness(man, woman)
+        if len(remaining_females):
+            woman = remaining_females.pop()
         else:
-            couples += [(man, woman)]
+            woman = random.choice(all_females)
+        if len(remaining_males):
+            man = remaining_males.pop()
+        else:
+            man = random.choice(all_males)
+        couples += mate_with_fitness(man, woman)
     
-    
-    output_diagnostics(couples)
+    #output_diagnostics(couples)
     
     # This is what's called whenever the generator function is called.
     while True:
