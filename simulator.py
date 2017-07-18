@@ -14,10 +14,8 @@
 '''
 
 
-DEBUG_MODE = False
-
 # Simulation Parameters
-SIMULATIONS = 1000
+SIMULATIONS = 10
 aa_HOMOGAMY = 0.0               # These variables MUST be globals b/c this is 
 aa_FITNESS = 1.0                # the only way to get it into the customChooser
                                 # generator function
@@ -33,12 +31,10 @@ import os
 import time
 import random
 import argparse
+import subprocess
 import multiprocessing
 import simuOpt
-if DEBUG_MODE:
-    PROPOSALS = 1
-else:
-    simuOpt.setOptions(optimized=True, numThreads=0, quiet=True)
+simuOpt.setOptions(optimized=True, numThreads=0, quiet=True)
 import simuPOP as sim
 
 def customChooser(pop, subPop):
@@ -142,21 +138,13 @@ def customChooser(pop, subPop):
     random.shuffle(remaining_males)
     random.shuffle(remaining_females)
     
-    
     # mate off the rest. if no mate exist, then choose a random mate from
     # the overall population. This makes sure that every single allele in the 
     # gene pool is passed down equitably. This last step is critical, because 
-    # even, a subtle loss of alleles has an observable long-term influence.
-    
+    # even, a subtle loss of alleles has an observable long-term influence.   
     while len(remaining_females) and len(remaining_males):
-        if len(remaining_females):
-            woman = remaining_females.pop()
-        else:
-            woman = random.choice(all_females)
-        if len(remaining_males):
-            man = remaining_males.pop()
-        else:
-            man = random.choice(all_males)
+        woman = remaining_females.pop() if len(remaining_females) else random.choice(all_females)
+        man = remaining_males.pop() if len(remaining_males) else random.choice(all_males)
         couples += mate_with_fitness(man, woman)
     
     #output_diagnostics(couples)
@@ -261,9 +249,9 @@ if __name__ == '__main__':
             print
     else:
         if fileio.create_folder(args.path):
-            print "  Created folder '{}'".format(args.path)
+            print "Created folder '{}'".format(args.path)
         else:
-            print "  Using folder '{}'".format(args.path)
+            print "Using folder '{}'".format(args.path)
         experiment.headers = sample_run['headers']
         experiment.source_code = os.path.split(__file__)[-1].replace('.pyc','.py')
         experiment.filename = os.path.join(args.path, 
@@ -272,18 +260,23 @@ if __name__ == '__main__':
                                            '_homogamy{experiment.aa_homogamy:.2}.tsv'\
                                            ''.format(**locals()))
         if experiment.write_metadata():
-            print "  Created '{}'".format(experiment.filename)
+            print "Created '{}'".format(experiment.filename)
         elif args.overwrite:
             experiment.write_metadata(overwrite=True)
-            print "  Overwrote '{}'".format(experiment.filename)
+            print "Overwrote '{}'".format(experiment.filename)
         else:
-            print "  File '{}' exists.".format(experiment.filename)
+            print "'{}' exists.".format(experiment.filename)
             print "  Use --overwrite to overwrite this file."
             exit()
         
-        print "  Running simulations..."
+       
+        experiment.cpu = subprocess.check_output(['/usr/sbin/sysctl', "-n", \
+                                         "machdep.cpu.brand_string"]).strip() + \
+                                         " ({} threads)".format(multiprocessing.cpu_count())
+        print experiment.metadata()
+        print "Running {:,} simulations...".format(SIMULATIONS)
     
-        def worker():
+        def _worker():
                 '''
                     The worker function exists as a convenient way of passing
                     simuAssortativeMatingWithFitness with its parameters to the 
@@ -294,25 +287,37 @@ if __name__ == '__main__':
                                                         experiment.a, 
                                                         experiment.aa_fitness,   
                                                         experiment.aa_homogamy)['row']
-        
-        simulations = 0
+ 
+        def _format_time (time):
+            h = time//3600
+            m = time//60
+            s = time%60
+            if h:
+                return '{:d}h {:d}m'.format(h, m)
+            elif m:
+                return '{:d}m {:d}s'.format(m, s)
+            else:
+                return '{:.1f}s'.format(s)
+                
+            
         mp_chunk_size = cpu_count = multiprocessing.cpu_count()
         pool = multiprocessing.Pool()
+        simulations = 0
         while simulations < SIMULATIONS:
             start_time = time.time()
-            p = [pool.apply_async(worker) for i in range(mp_chunk_size)]
+            p = [pool.apply_async(_worker) for i in range(mp_chunk_size)]
             table = [item.get() for item in p]
             experiment.write(table)
             simulations += mp_chunk_size
-            rate = mp_chunk_size*60./(time.time()-start_time)
-            print '  {simulations:,} simulations completed ' \
-                  '({cpu_count} CPUs; {rate:,.1f} simulations/min)'\
-                  ''.format(simulations=simulations,
-                            rate=rate,
-                            cpu_count=cpu_count)
+            rate = mp_chunk_size/(time.time()-start_time)
+            time_remaining = (SIMULATIONS-simulations)/rate if rate > 0 else 0
+            print '{:,} completed ' \
+                  '({:,.1f} simulations/min) '\
+                  '{} remaining.'\
+                  ''.format(simulations, 60*rate, _format_time(time_remaining))
             # mp_chunk_size is dynamically adjusted based on actual
             # execution speed such that file writes occur once per minute.
-            mp_chunk_size = int(rate - rate%cpu_count)
+            mp_chunk_size = int(60*rate - 60*rate%cpu_count)
             if simulations + mp_chunk_size > SIMULATIONS:
                 mp_chunk_size = SIMULATIONS-simulations
-    print '  Done.'
+    print 'Done.'

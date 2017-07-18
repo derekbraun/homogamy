@@ -243,7 +243,7 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             ax.fill_between(X, Yg[0], Yg[1], color=BUFF, alpha=1./(gradients/4.))
         ax.plot(X, Y_upper_cis, color=BLUE)
         #ax.set_yticklabels([format.format(x) for x in ax.get_yticks().tolist()]) 
-        ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter())
+        #ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter())
         ax.text(max(X)*1.02, Y_upper_cis[-1], format.format(Y_upper_cis[-1]), 
                 va='center', ha='left')
         ax.plot(X, Y_medians, color=BLUE)

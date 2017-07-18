@@ -16,6 +16,7 @@
 
 PARAMS = ['experiment_date',
           'source_code',
+          'cpu',
           'constant_pop_size',
           'gen',
           'a', 
@@ -66,8 +67,11 @@ class Experiment:
         '''
         
         if filename is None:
-            for key in kwargs.keys():
-                setattr(self, key, kwargs[key])
+            for key in PARAMS:
+                if key in kwargs.keys():
+                    setattr(self, key, kwargs[key])
+                else:
+                    setattr(self, key, None)
             self.experiment_date = time.strftime('%Y %b %d')
             self.headers = None
         elif filename is not None and len(kwargs) == 0:
