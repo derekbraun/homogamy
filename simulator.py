@@ -15,8 +15,8 @@
 
 
 # Simulation Parameters
-SIMULATIONS = 10
-aa_HOMOGAMY = 0.0               # These variables MUST be globals b/c this is 
+SIMULATIONS = 10000
+aa_HOMOGAMY = 0.9               # These variables MUST be globals b/c this is 
 aa_FITNESS = 1.0                # the only way to get it into the customChooser
                                 # generator function
                                 
@@ -290,12 +290,12 @@ if __name__ == '__main__':
  
         def _format_time (time):
             h = time//3600
-            m = time//60
+            m = (time - 3600*(time//3600))//60
             s = time%60
             if h:
-                return '{:d}h {:d}m'.format(h, m)
+                return '{:.0f}h {:.0f}m'.format(h, m)
             elif m:
-                return '{:d}m {:d}s'.format(m, s)
+                return '{:.0f}m {:.0f}s'.format(m, s)
             else:
                 return '{:.1f}s'.format(s)
                 
