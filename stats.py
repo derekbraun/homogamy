@@ -16,74 +16,75 @@ import fileio
 import os
 from scipy import stats
 
-
 #
 #   MAIN ROUTINE
 #
 if __name__ == '__main__':
-    
     # reading from the files
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('filenames', nargs='+',
                         help = 'filenames for data files')
-    parser.add_argument('--fields', action='store',
+    parser.add_argument('-f', '--field', action='store',
                         help = 'the variables to compare among populations. a, aa, or F.')
-    parser.add_argument('-c','--shapiro_wilk', action='store_true',
-                        default=True,
-                        help = 'Run the Shapiro-Wilk test for normality')
     args=parser.parse_args()
                         
-    # Checking to see if the field is a valid one
-    if not(args.fields == "a" or args.fields == "aa" or args.fields == "F"):
-        print '  field not valid. Please try again with "a", "aa", or "F".\n'
+    # Check to see if the field is a valid one
+    if args.field not in ['a','aa']:
+        print 'Field {} is not valid. Please try again with "a" or "aa".'\
+              ''.format(args.field)
         exit()                        
 
-    for file in args.filenames:
-        
-        # Checking to see if each individual file is actually an existing file
-        if os.path.isfile(file):
-            e = fileio.Experiment(file)
-            x = e.select(args.fields)[-1]    # The array of data at the final point of time
-            print '\n  Reading {}'.format(file)
+    experiments = []
+    for filename in args.filenames:
+        # Check to see if each individual file exists
+        if os.path.isfile(filename):
+            experiments.append(fileio.Experiment(filename))
+            print 'Reading {}'.format(filename)
         else:
-            print "\n  File {} not found.".format(file)
+            print "File {} not found.".format(filename)
             exit()
-                 
-        # Finding the mean and stdev
-        f_mean_stdev = "{} ± {}".format(numpy.mean(x), numpy.std(x))
-        
-        # Running the shapiro wilk test for each individual file
-        if args.shapiro_wilk:
-            w, normality_pval = stats.shapiro(x)
-            print "  ** Ran test of normality for [{}] **".format(file) # check
-            print "  Shapiro-Wilk p-value:  {}".format(normality_pval)
-            print "  mean ± standard deviation:  {} ".format(f_mean_stdev)
-    
-    # Creating a list of the numbers to compare (in preparation for the statistical test)
-    fieldsList = []
-    i = 0
-    while i < len(args.filenames):
-        f = fileio.Experiment(args.filenames[i]).select(args.fields)[-1]
-        fieldsList.append(f)
-        i += 1
+    print
+    print '** Shapiro-Wilk test of normality **'.format(filename)
+    print '{:35}   {:^5}    {:^15}'.format('filename', 'p', 'mean ± stdev')
+    data_array = []
+    for e in experiments:
+        # Find the mean and stdev, and run the shapiro-wilk test
+        X = e.select(args.field)[-1]
+        data_array.append(X)
+        mean_stdev = "{:.4f} ± {:.4f}".format(numpy.mean(X), numpy.std(X))
+        w, p = stats.shapiro(X)
+        print '{:35}   {:.3f}   {}'.format (e.filename, p, mean_stdev)
         
     # Running the tests
-    if len(args.filenames) == 2:
-        statistic, pval = stats.mstats.mannwhitneyu(fieldsList[0], fieldsList[1])
-        print "\n  ** Ran comparisons **"
-        print "  filenames:  {}".format(args.filenames)
-        print "  Mann-Whitney U:  {}".format(statistic)
-        print "  p-value:  {}".format(pval)
-    elif len(args.filenames) > 2:
+    if len(experiments) == 2:
+        print ''    
+        print '** Mann-Whitney U test **'
+        print '{:5}   {:3}'.format('U', 'p-value')
+        U, p = stats.mstats.mannwhitneyu(data_array[0], data_array[1])
+        print "{:<5.1f}   {:.3f}".format(U, p)
+        print
+    else:
+        print ''    
+        print '** Kruskal-Wallis H test **'
+        print '{:^5}   {:^5}'.format('H', 'p')
+        H, p = stats.mstats.kruskal(*data_array)
+        print "{:<5.1f}   {:.3f}".format(H, p)
+        print
+        if p <= 0.5:
+            print '** post-hoc pairwise Mann-Whitney U test **'
+            matrix = ''
+            for i in range(len(data_array)):
+                for j in range(len(data_array)):
+                    if j >= i:
+                        matrix += '{:^5}   '.format('-')
+                    else:
+                        U, p = stats.mstats.mannwhitneyu(data_array[i], data_array[j])
+                        matrix += '{:.3f}   '.format(p)
+                matrix += '\n'
+            print matrix
         
-        statistic, pval = stats.mstats.kruskal(fieldsList)
-        print "\n  ** Ran comparisons **"
-        print "  filenames:  {}".format(args.filenames)
-        print "  Kruskal-Wallis H:  {}".format(statistic)
-        print "  p-value:  {}\n".format(pval)
-    
     print 'Done. '
 
-# To run: write $ ./stats.py *.tsv --fields "aa"
+
 
