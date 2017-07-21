@@ -46,15 +46,18 @@ if __name__ == '__main__':
             exit()
     print
     print '** Shapiro-Wilk test of normality **'.format(filename)
-    print '{:35}   {:^5}    {:^15}'.format('filename', 'p', 'mean ± stdev')
+    print '{:35}   {:^5}    {:^6}  {:^17}'.format('filename', 'p', 'median','95% CI')
     data_array = []
     for e in experiments:
         # Find the mean and stdev, and run the shapiro-wilk test
         X = e.select(args.field)[-1]
         data_array.append(X)
-        mean_stdev = "{:.4f} ± {:.4f}".format(numpy.mean(X), numpy.std(X))
+        median = numpy.median(X)
+        X.sort()
+        ci = '({:.4f} - {:.4f})'.format(X[int(0.025*len(X))], 
+                                      X[int(0.975*len(X))])
         w, p = stats.shapiro(X)
-        print '{:35}   {:.3f}   {}'.format (e.filename, p, mean_stdev)
+        print '{:35}   {:.3f}   {:^6}  {:^17}'.format (e.filename, p, median, ci)
         
     # Running the tests
     if len(experiments) == 2:
@@ -66,7 +69,7 @@ if __name__ == '__main__':
         print
     else:
         print ''    
-        print '** Kruskal-Wallis H test **'
+        print '** Kruskal-Wallis one-way analysis of variance **'
         print '{:^5}   {:^5}'.format('H', 'p')
         H, p = stats.mstats.kruskal(*data_array)
         print "{:<5.1f}   {:.3f}".format(H, p)

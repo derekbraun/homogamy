@@ -186,10 +186,11 @@ class Experiment:
         return numpy.array(l, dtype=float)
 
 
-    def hpd(self, param):
+    def ci(self, param):
         '''
+            Calculates the median and 95% credible interval.
             Selects all instances of a data column with name param.
-            Returns a list of tuples (2.5%, 50%, and 97.5%) for each column.
+            Returns a list of tuples (2.5%, median, and 97.5%) for each column.
         '''
         lt = []
         for h, col in zip(self.headers, self.data):
