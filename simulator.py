@@ -3,29 +3,33 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-    Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek 
+    Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek
     Braun* (*derek.braun@gallaudet.edu)
-    
-    Simulation module which uses simuPOP. Simulation parameters are set via 
+
+    Simulation module which uses simuPOP. Simulation parameters are set via
     setting global variables, and, for changing assortative mating, sometimes
     by changing the code.
-    
-    Last updated: 23-Jun-2017 by Derek Braun
+
+    Last updated: 2-Apr-2019 by Derek Braun
 '''
 
 
 # Simulation Parameters
-SIMULATIONS = 10000
-aa_HOMOGAMY = 0.9               # These variables MUST be globals b/c this is 
-aa_FITNESS = 1.0                # the only way to get it into the customChooser
-                                # generator function
-                                
+# At least some of these variables MUST be globals b/c this is the only way to
+# get them into the customChooser generator function
+aa_HOMOGAMY = 0.9
+aa_FITNESS = 1.0
+a_FREQ = 0.01304
+POP_SIZE = 50000
+GEN = 100
+SIMULATIONS = 1000
+
 import fileio
-experiment = fileio.Experiment( constant_pop_size   = 10000,
+experiment = fileio.Experiment( constant_pop_size   = POP_SIZE,
                                 aa_fitness          = aa_FITNESS,
                                 aa_homogamy         = aa_HOMOGAMY,
-                                a                   = 0.01304,
-                                gen                 = 100)
+                                a                   = a_FREQ,
+                                gen                 = GEN)
 
 import os
 import time
@@ -40,121 +44,117 @@ import simuPOP as sim
 def customChooser(pop, subPop):
     '''
         Generator function which chooses parents.
-    
-        Upon initialization, this chooser mates couples in a monogamous 
+
+        Upon initialization, this chooser mates couples in a monogamous
         mating scheme.
-        
+
         The algorithm goes through each eligible person
         listwise. If that person is deaf, that person either marries deaf
         or hearing based on the probability in aa_HOMOGAMY. If either
-        parent is dead, they have a number of children based on the 
+        parent is dead, they have a number of children based on the
         fitness in aa_FITNESS (non-integers are handled with a randomizer).
     '''
-    
-    def is_deaf(i):
+
+    def mate_with_fitness(female, male):
         '''
-            Identifies whether an individual is deaf, based on its
-            genotype.
-            
+            Mates a couple. Creates a number of entries in the
+            final list (representing the parents for each child born, based on
+            reproductive fitness. Non-integer number of children are handled by
+            using a randomizer for the fractional amount.
+
             Accepts:
-            i               the individual's index
-        
-            Returns True or False
+            female, male             sim.individual objects
+
+            Returns a list of (female, male) parental pairs
         '''
-        if list(pop.individual(i).genotype()) == [1, 1]:
-            return True
-        else:
-            return False
-            
-            
-    def mate_with_fitness(male, female):
-        '''
-            Mates a couple. Randomly creates a number of entries in the
-            final list (representing number of children) reflecting
-            their reproductive fitness. Non-integer number of children
-            are handled by using a randomizer.
-        '''
-        
-        if is_deaf(man) or is_deaf(woman):
+
+        if female.genotype() == [1,1] or male.genotype() == [1,1]:
             r = float(aa_FITNESS)
             l = []
             while r >= 1:
-                l += [(man, woman)]
+                l += [(female, male)]
                 r -= 1
             if random.random() < r:
-                l += [(man, woman)]
+                l += [(female, male)]
             return l
         else:
-            return [(man, woman)]
-    
-    
+            return [(female, male)]
+
+
     def output_diagnostics(couples):
         '''
             Outputs some summary statistics about the final mating pool.
             Helps with troubleshooting.
+
+            Accepts:
+            couples             a list of (female, male) sim.individual objects
         '''
-        ddm = 0.
-        adi = 0.
-        adi = 0.
-        for man, woman in couples:
-            if is_deaf(man) and is_deaf(woman):
+        ddm = 0     # deaf-deaf marriages
+        df = 0      # deaf females
+        dm = 0      # deaf males
+
+        for female, male in couples:
+            if female.genotype() == [1,1] and male.genotype() == [1,1]:
                 ddm += 1
-            if is_deaf(man):
-                adi += 1
-            if is_deaf(woman):
-                adi += 1
-        print 'homogamy = {:.1%}   deaf-deaf marriages = {:,d} ({:.1%})' \
-              ''.format(2*ddm/adi, ddm, ddm/len(couples))
-        
-    all_males = []
+            if female.genotype() == [1,1]:
+                df += 1
+            if male.genotype() == [1,1]:
+                dm += 1
+        print 'deaf females/males = {:,d}/{:,d}  couples = {:,d}  homogamy = {:.1%}  deaf-deaf marriages = {:,d} ({:.1%})' \
+              ''.format(df, dm, len(couples), 2.*ddm/(df+dm), ddm, ddm/float(len(couples)))
+
     all_females = []
-    deaf_males = []
     deaf_females = []
-    remaining_males = []
     remaining_females = []
+    all_males = []
+    deaf_males = []
+    remaining_males = []
     couples = []
-    
+
     # bin individuals
-    for i in range(pop.subPopSize(subPop)):
-        person = pop.individual(i)
-        if pop.individual(i).sex() == sim.MALE:
-            all_males.append(i)
-            deaf_males.append(i) if is_deaf(i) else remaining_males.append(i)
-        elif pop.individual(i).sex() == sim.FEMALE:
-            all_females.append(i)
-            deaf_females.append(i) if is_deaf(i) else remaining_females.append(i)
-    
+    for person in pop.individuals():
+        if person.sex() == sim.FEMALE:
+            all_females.append(person)
+            if person.genotype() == [1,1]:
+                deaf_females.append(person)
+            else:
+                remaining_females.append(person)
+        elif person.sex() == sim.MALE:
+            all_males.append(person)
+            if person.genotype() == [1,1]:
+                deaf_males.append(person)
+            else:
+                remaining_males.append(person)
+
     # calculate how many deaf-deaf marriages we need, then marry them off
-    target = aa_HOMOGAMY * (len(deaf_females) + len(deaf_males))//2
+    target = int(round(aa_HOMOGAMY * (len(deaf_females) + len(deaf_males))/2))
     while len(deaf_females) > 0 and len(deaf_males) > 0 and target > 0:
-        woman = deaf_females.pop()
-        man = deaf_males.pop()
-        couples += mate_with_fitness(man, woman)
+        couples += mate_with_fitness(deaf_females.pop(), deaf_males.pop())
         target -= 1
 
     # move remaining deaf people into remaining bins, and shuffle
-    remaining_males += deaf_males        
     remaining_females += deaf_females
-    random.shuffle(remaining_males)
     random.shuffle(remaining_females)
-    
-    # mate off the rest. if no mate exist, then choose a random mate from
-    # the overall population. This makes sure that every single allele in the 
-    # gene pool is passed down equitably. This last step is critical, because 
-    # even, a subtle loss of alleles has an observable long-term influence.   
+    remaining_males += deaf_males
+    random.shuffle(remaining_males)
+
+    # mate off the rest. if no mate exists, then choose a random mate from
+    # the overall population. This makes sure that every single allele in the
+    # gene pool is passed down equitably. This last step is critical, because
+    # even a subtle loss of alleles has an observable long-term influence.
     while len(remaining_females) and len(remaining_males):
-        woman = remaining_females.pop() if len(remaining_females) else random.choice(all_females)
-        man = remaining_males.pop() if len(remaining_males) else random.choice(all_males)
-        couples += mate_with_fitness(man, woman)
-    
-    #output_diagnostics(couples)
-    
+        female = remaining_females.pop() if len(remaining_females) else random.choice(all_females)
+        male = remaining_males.pop() if len(remaining_males) else random.choice(all_males)
+        couples += mate_with_fitness(female, male)
+
+    # output_diagnostics(couples)
+
     # This is what's called whenever the generator function is called.
     while True:
         yield random.choice(couples)
 
 
-def simuAssortativeMatingWithFitness(constant_pop_size, gen, a, 
+def simuAssortativeMatingWithFitness(constant_pop_size, gen, a,
                                     aa_fitness, aa_homogamy):
     '''
         Accepts:
@@ -170,25 +170,25 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a,
         aa_size             size of the aa population
         A                   frequency of the A allele
         a                   frequency of the a allele
-        
+
         Adopted from: http://simupop.sourceforge.net/Cookbook/AssortativeMating
-    '''             
-    sim.setRNG(random.seed(sim.getRNG().seed()))    
+    '''
+    sim.setRNG(random.seed(sim.getRNG().seed()))
     pop = sim.Population(constant_pop_size, loci=[1])
-    pop.dvars().headers = [] 
+    pop.dvars().headers = []
     pop.dvars().row = []
     pop.evolve(
         initOps= [sim.InitSex(),
                   # Assigns individuals randomly to be male or female.
-                  # This can result in slightly more males or females, 
-                  # which can cause errors if the wrong mating scheme is 
+                  # This can result in slightly more males or females,
+                  # which can cause errors if the wrong mating scheme is
                   # selected.
                   sim.InitGenotype(freq=[1-a, a])
                   ],
         matingScheme = sim.HomoMating(
                         chooser = sim.PyParentsChooser(customChooser),
                         generator = sim.OffspringGenerator(sim.MendelianGenoTransmitter())),
-        postOps = [sim.Stat(alleleFreq=[0], genoFreq=[0]), 
+        postOps = [sim.Stat(alleleFreq=[0], genoFreq=[0]),
                    sim.PyExec(r"headers += ['gen','A', 'a',"\
                                "'AA', 'Aa', 'aa',"\
                                "'AA_size', 'Aa_size', 'aa_size',"\
@@ -225,14 +225,14 @@ if __name__ == '__main__':
     parser.add_argument('-s','--sample_run',action='store_true',
                         help = 'sample run only; display results')
     args=parser.parse_args()
-    
+
     # This quick sample run obtains the headers for the data file.
-    sample_run = simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
+    sample_run = simuAssortativeMatingWithFitness(experiment.constant_pop_size,
                                                   experiment.gen,
-                                                  experiment.a, 
-                                                  experiment.aa_fitness,   
-                                                  experiment.aa_homogamy)    
-    if args.sample_run:    
+                                                  experiment.a,
+                                                  experiment.aa_fitness,
+                                                  experiment.aa_homogamy)
+    if args.sample_run:
         print experiment.metadata()
         for h in sample_run['headers'][0:10]:
             print "{h:>8}".format(h=h),
@@ -254,7 +254,7 @@ if __name__ == '__main__':
             print "Using folder '{}'".format(args.path)
         experiment.headers = sample_run['headers']
         experiment.source_code = os.path.split(__file__)[-1].replace('.pyc','.py')
-        experiment.filename = os.path.join(args.path, 
+        experiment.filename = os.path.join(args.path,
                                            'pop{experiment.constant_pop_size}'\
                                            '_fitness{experiment.aa_fitness}'\
                                            '_homogamy{experiment.aa_homogamy:.2}.tsv'\
@@ -268,26 +268,26 @@ if __name__ == '__main__':
             print "'{}' exists.".format(experiment.filename)
             print "  Use --overwrite to overwrite this file."
             exit()
-        
-       
+
+
         experiment.cpu = subprocess.check_output(['/usr/sbin/sysctl', "-n", \
                                          "machdep.cpu.brand_string"]).strip() + \
                                          " ({} threads)".format(multiprocessing.cpu_count())
         print experiment.metadata()
         print "Running {:,} simulations...".format(SIMULATIONS)
-    
+
         def _worker():
                 '''
                     The worker function exists as a convenient way of passing
-                    simuAssortativeMatingWithFitness with its parameters to the 
+                    simuAssortativeMatingWithFitness with its parameters to the
                     multiprocessing pool.
                 '''
-                return simuAssortativeMatingWithFitness(experiment.constant_pop_size, 
+                return simuAssortativeMatingWithFitness(experiment.constant_pop_size,
                                                         experiment.gen,
-                                                        experiment.a, 
-                                                        experiment.aa_fitness,   
+                                                        experiment.a,
+                                                        experiment.aa_fitness,
                                                         experiment.aa_homogamy)['row']
- 
+
         def _format_time (time):
             h = time//3600
             m = (time - 3600*(time//3600))//60
@@ -298,8 +298,8 @@ if __name__ == '__main__':
                 return '{:.0f}m {:.0f}s'.format(m, s)
             else:
                 return '{:.1f}s'.format(s)
-                
-            
+
+
         mp_chunk_size = cpu_count = multiprocessing.cpu_count()
         pool = multiprocessing.Pool()
         simulations = 0
