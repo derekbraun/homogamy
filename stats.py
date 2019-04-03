@@ -5,13 +5,14 @@
 '''
     Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek
     Braun* (*derek.braun@gallaudet.edu)
-    
+
     Performs statistical analyses comparing data files created by simulator.py.
     Last updated: 11-Jul-2017 by Maggie Gray
 '''
 
 import argparse
 import numpy
+import random
 import fileio
 import os
 from scipy import stats
@@ -28,12 +29,12 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--field', action='store',
                         help = 'the variables to compare among populations. a, aa, or F.')
     args=parser.parse_args()
-                        
+
     # Check to see if the field is a valid one
     if args.field not in ['a','aa']:
         print 'Field {} is not valid. Please try again with "a" or "aa".'\
               ''.format(args.field)
-        exit()                        
+        exit()
 
     experiments = []
     for filename in args.filenames:
@@ -49,26 +50,33 @@ if __name__ == '__main__':
     print '{:35}   {:^5}    {:^6}  {:^17}'.format('filename', 'p', 'median','95% CI')
     data_array = []
     for e in experiments:
-        # Find the mean and stdev, and run the shapiro-wilk test
+        # select last set of values
         X = e.select(args.field)[-1]
+        # Find the mean and stdev,
         data_array.append(X)
         median = numpy.median(X)
         X.sort()
-        ci = '({:.4f} - {:.4f})'.format(X[int(0.025*len(X))], 
+        ci = '({:.4f} - {:.4f})'.format(X[int(0.025*len(X))],
                                       X[int(0.975*len(X))])
-        w, p = stats.shapiro(X)
+
+        # Thin X to 5,000 values if needed; the maximum for the Shapiro-Wilk
+        # Then run the Shapiro-Wilk
+        if len(X) > 5000:
+            w, p = stats.shapiro(random.sample(X, 5000))
+        else:
+            w, p = stats.shapiro(X)
         print '{:35}   {:.3f}   {:^6}  {:^17}'.format (e.filename, p, median, ci)
-        
+
     # Running the tests
     if len(experiments) == 2:
-        print ''    
+        print ''
         print '** Mann-Whitney U test **'
         print '{:5}   {:3}'.format('U', 'p-value')
         U, p = stats.mstats.mannwhitneyu(data_array[0], data_array[1])
         print "{:<5.1f}   {:.3f}".format(U, p)
         print
     else:
-        print ''    
+        print ''
         print '** Kruskal-Wallis one-way analysis of variance **'
         print '{:^5}   {:^5}'.format('H', 'p')
         H, p = stats.mstats.kruskal(*data_array)
@@ -86,8 +94,5 @@ if __name__ == '__main__':
                         matrix += '{:.3f}   '.format(p)
                 matrix += '\n'
             print matrix
-        
+
     print 'Done. '
-
-
-
