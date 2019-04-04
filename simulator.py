@@ -23,7 +23,7 @@ a_FREQ = 0.01304
 #DEAFNESS_FREQ = 0.01
 POP_SIZE = 10000
 GEN = 100
-SIMULATIONS = 10000
+SIMULATIONS = 5000
 
 import fileio
 experiment = fileio.Experiment( constant_pop_size   = POP_SIZE,
@@ -117,7 +117,7 @@ def customChooser(pop, subPop):
 
     # calculate how many deaf-deaf marriages we need, then marry them off
     homogamy_target = round(aa_HOMOGAMY * len(deaf_parents)/2)
-    while len(deaf_parents) >= 2 and homogamy_target > 0:
+    while len(deaf_parents) and homogamy_target > 0:
         couples += mate_with_fitness(deaf_parents.pop(), deaf_parents.pop())
         homogamy_target -= 1
 
@@ -125,10 +125,10 @@ def customChooser(pop, subPop):
     # are not lost. Then, mate off the rest
     hearing_parents += deaf_parents
     #hearing_parents.shuffle()
-    while len(hearing_parents) >= 2:
+    while len(hearing_parents):
         couples += mate_with_fitness(hearing_parents.pop(), hearing_parents.pop())
 
-    output_diagnostics(couples)
+    # output_diagnostics(couples)
 
     # This is what's called whenever the generator function is called.
     while True:
@@ -174,6 +174,10 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a,
                                "'AA', 'Aa', 'aa',"\
                                "'AA_size', 'Aa_size', 'aa_size',"\
                                "'F']"),
+                   sim.PyExec(r"F = 1.0-((genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/" # F          \
+                              "(2.0*alleleFreq[0][0]*alleleFreq[0][1]))"\
+                              "if alleleFreq[0][0] != 0.0 and alleleFreq[0][1]"\
+                              "!= 0.0 else 0.0"),
                    sim.PyExec(r"row += [gen, "\
                                "alleleFreq[0][0],"                             # A          \
                                "alleleFreq[0][1],"                             # a          \
@@ -183,10 +187,7 @@ def simuAssortativeMatingWithFitness(constant_pop_size, gen, a,
                                "genoNum[0][(0,0)],"                            # AA_size    \
                                "genoNum[0][(0,1)]+genoNum[0][(1,0)],"          # Aa_size    \
                                "genoNum[0][(1,1)],"                            # aa_size    \
-                               "1.0-((genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/" # F          \
-                               "(2.0*alleleFreq[0][0]*alleleFreq[0][1]))"\
-                               "if alleleFreq[0][0] != 0.0 and alleleFreq[0][1]"\
-                               "!= 0.0 else 0.0]")
+                               "F if F>0.0 else 0.0]")
                    ],
         gen = gen
     )
@@ -292,8 +293,8 @@ if __name__ == '__main__':
             simulations += mp_chunk_size
             rate = mp_chunk_size/(time.time()-start_time)
             time_remaining = (SIMULATIONS-simulations)/rate if rate > 0 else 0
-            print '{:,} completed ' \
-                  '({:,.1f} simulations/min) '\
+            print '{:,} simulations completed ' \
+                  '({:,d}/min) '\
                   '{} remaining.'\
                   ''.format(simulations, 60*rate, _format_time(time_remaining))
             # mp_chunk_size is dynamically adjusted based on actual
