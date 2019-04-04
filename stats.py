@@ -47,7 +47,7 @@ if __name__ == '__main__':
             exit()
     print
     print '** Shapiro-Wilk test of normality **'.format(filename)
-    print '{:35}   {:^5}    {:^6}  {:^17}'.format('filename', 'p', 'median','95% CI')
+    print '{:40}   {:^5}    {:^6}  {:^17}'.format('filename', 'p', 'median','95% CI')
     data_array = []
     for e in experiments:
         # select last set of values
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             w, p = stats.shapiro(random.sample(X, 5000))
         else:
             w, p = stats.shapiro(X)
-        print '{:35}   {:.3f}   {:^6}  {:^17}'.format (e.filename, p, median, ci)
+        print '{:40}   {:.3f}   {:^6}  {:^17}'.format (e.filename, p, median, ci)
 
     # Running the tests
     if len(experiments) == 2:

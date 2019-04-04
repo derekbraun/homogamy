@@ -83,7 +83,6 @@ pop.individual(n).affected()                displays whether affected
 pop.individual(n).setAffected(True)         sets the individual to Affected
                                             without changing genotype
 
-
 Population.evolve() has an "operator" called Stat which calculates things and
 stores them in the local namespace under an unspecified name (argh!!!).
 But this name could probably be figured out by inspecting Population.vars().

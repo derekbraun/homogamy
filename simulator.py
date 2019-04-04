@@ -20,9 +20,10 @@
 aa_HOMOGAMY = 0.9
 aa_FITNESS = 1.0
 a_FREQ = 0.01304
-POP_SIZE = 50000
+#DEAFNESS_FREQ = 0.01
+POP_SIZE = 10000
 GEN = 100
-SIMULATIONS = 1000
+SIMULATIONS = 10000
 
 import fileio
 experiment = fileio.Experiment( constant_pop_size   = POP_SIZE,
@@ -55,7 +56,7 @@ def customChooser(pop, subPop):
         fitness in aa_FITNESS (non-integers are handled with a randomizer).
     '''
 
-    def mate_with_fitness(female, male):
+    def mate_with_fitness(parent1, parent2):
         '''
             Mates a couple. Creates a number of entries in the
             final list (representing the parents for each child born, based on
@@ -63,22 +64,23 @@ def customChooser(pop, subPop):
             using a randomizer for the fractional amount.
 
             Accepts:
-            female, male             sim.individual objects
+            parent1, parent2             sim.individual objects
 
-            Returns a list of (female, male) parental pairs
+            Returns a list of (parent1, parent2) parental pairs
+            reflecting fitness.
         '''
 
-        if female.genotype() == [1,1] or male.genotype() == [1,1]:
+        if parent1.genotype() == [1,1] or parent2.genotype() == [1,1]:
             r = float(aa_FITNESS)
             l = []
             while r >= 1:
-                l += [(female, male)]
+                l += [(parent1, parent2)]
                 r -= 1
             if random.random() < r:
-                l += [(female, male)]
+                l += [(parent1, parent2)]
             return l
         else:
-            return [(female, male)]
+            return [(parent1, parent2)]
 
 
     def output_diagnostics(couples):
@@ -90,64 +92,43 @@ def customChooser(pop, subPop):
             couples             a list of (female, male) sim.individual objects
         '''
         ddm = 0     # deaf-deaf marriages
-        df = 0      # deaf females
-        dm = 0      # deaf males
+        dp = 0      # deaf parents
 
-        for female, male in couples:
-            if female.genotype() == [1,1] and male.genotype() == [1,1]:
+        for parent1, parent2 in couples:
+            if parent1.genotype() == [1,1] and parent2.genotype() == [1,1]:
                 ddm += 1
-            if female.genotype() == [1,1]:
-                df += 1
-            if male.genotype() == [1,1]:
-                dm += 1
-        print 'deaf females/males = {:,d}/{:,d}  couples = {:,d}  homogamy = {:.1%}  deaf-deaf marriages = {:,d} ({:.1%})' \
-              ''.format(df, dm, len(couples), 2.*ddm/(df+dm), ddm, ddm/float(len(couples)))
+            if parent1.genotype() == [1,1]:
+                dp += 1
+            if parent2.genotype() == [1,1]:
+                dp += 1
+        print 'couples = {:,d}  homogamy = {:.1%}  deaf-deaf marriages = {:,d} ({:.1%})' \
+              ''.format(len(couples), 2.*ddm/dp, ddm, ddm/float(len(couples)))
 
-    all_females = []
-    deaf_females = []
-    remaining_females = []
-    all_males = []
-    deaf_males = []
-    remaining_males = []
+    deaf_parents = []
+    hearing_parents = []
     couples = []
 
     # bin individuals
     for person in pop.individuals():
-        if person.sex() == sim.FEMALE:
-            all_females.append(person)
-            if person.genotype() == [1,1]:
-                deaf_females.append(person)
-            else:
-                remaining_females.append(person)
-        elif person.sex() == sim.MALE:
-            all_males.append(person)
-            if person.genotype() == [1,1]:
-                deaf_males.append(person)
-            else:
-                remaining_males.append(person)
+        if person.genotype() == [1,1]:
+            deaf_parents.append(person)
+        else:
+            hearing_parents.append(person)
 
     # calculate how many deaf-deaf marriages we need, then marry them off
-    target = int(round(aa_HOMOGAMY * (len(deaf_females) + len(deaf_males))/2))
-    while len(deaf_females) > 0 and len(deaf_males) > 0 and target > 0:
-        couples += mate_with_fitness(deaf_females.pop(), deaf_males.pop())
-        target -= 1
+    homogamy_target = round(aa_HOMOGAMY * len(deaf_parents)/2)
+    while len(deaf_parents) >= 2 and homogamy_target > 0:
+        couples += mate_with_fitness(deaf_parents.pop(), deaf_parents.pop())
+        homogamy_target -= 1
 
-    # move remaining deaf people into remaining bins, and shuffle
-    remaining_females += deaf_females
-    random.shuffle(remaining_females)
-    remaining_males += deaf_males
-    random.shuffle(remaining_males)
+    # Move remaining deaf parents into the hearing bin, so that their alleles
+    # are not lost. Then, mate off the rest
+    hearing_parents += deaf_parents
+    #hearing_parents.shuffle()
+    while len(hearing_parents) >= 2:
+        couples += mate_with_fitness(hearing_parents.pop(), hearing_parents.pop())
 
-    # mate off the rest. if no mate exists, then choose a random mate from
-    # the overall population. This makes sure that every single allele in the
-    # gene pool is passed down equitably. This last step is critical, because
-    # even a subtle loss of alleles has an observable long-term influence.
-    while len(remaining_females) and len(remaining_males):
-        female = remaining_females.pop() if len(remaining_females) else random.choice(all_females)
-        male = remaining_males.pop() if len(remaining_males) else random.choice(all_males)
-        couples += mate_with_fitness(female, male)
-
-    # output_diagnostics(couples)
+    output_diagnostics(couples)
 
     # This is what's called whenever the generator function is called.
     while True:
