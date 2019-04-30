@@ -3,10 +3,11 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-    Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek
-    Braun* (*derek.braun@gallaudet.edu)
+    Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
+    (*derek.braun@gallaudet.edu)
 
     Performs statistical analyses comparing data files created by simulator.py.
+
     Last updated: 11-Jul-2017 by Maggie Gray
 '''
 
@@ -45,27 +46,39 @@ if __name__ == '__main__':
         else:
             print "File {} not found.".format(filename)
             exit()
+
+    print
+    print '{:30}   {:^8}   {:^8}  {:^21}'.format('** Summary Statistics **', 'start', \
+                                                 'end', '')
+    print '{:30}   {:^8}   {:^8}  {:^21}'.format('filename','(median)','(median)','95% CI')
+    for e in experiments:
+        # select first and last set of values
+        Xo = e.select(args.field)[0]
+        X = e.select(args.field)[-1]
+        # Find the mean and stdev
+        start_median = numpy.median(Xo)
+        end_median = numpy.median(X)
+        X.sort()
+        ci = '({:0.6f} - {:0.6f})'.format(X[int(0.025*len(X))],
+                                      X[int(0.975*len(X))])
+        print '{:30}   {:0.6f}   {:0.6f}  {:^21}'.format(e.filename, start_median, \
+                                             end_median, ci)
     print
     print '** Shapiro-Wilk test of normality **'.format(filename)
-    print '{:40}   {:^5}    {:^6}  {:^17}'.format('filename', 'p', 'median','95% CI')
+    print '{:30}   {:^5}   {:^14}'.format('filename', 'p', 'interpretation')
     data_array = []
     for e in experiments:
         # select last set of values
         X = e.select(args.field)[-1]
         # Find the mean and stdev,
         data_array.append(X)
-        median = numpy.median(X)
-        X.sort()
-        ci = '({:.4f} - {:.4f})'.format(X[int(0.025*len(X))],
-                                      X[int(0.975*len(X))])
-
         # Thin X to 5,000 values if needed; the maximum for the Shapiro-Wilk
         # Then run the Shapiro-Wilk
         if len(X) > 5000:
             w, p = stats.shapiro(random.sample(X, 5000))
         else:
             w, p = stats.shapiro(X)
-        print '{:40}   {:.3f}   {:^6}  {:^17}'.format (e.filename, p, median, ci)
+        print '{:30}   {:0.3f}   {:^14}'.format (e.filename, p, 'not normal' if p < 0.05 else 'normal')
 
     # Running the tests
     if len(experiments) == 2:
@@ -88,10 +101,10 @@ if __name__ == '__main__':
             for i in range(len(data_array)):
                 for j in range(len(data_array)):
                     if j >= i:
-                        matrix += '{:^5}   '.format('-')
+                        matrix += '{:^7}   '.format('-')
                     else:
                         U, p = stats.mstats.mannwhitneyu(data_array[i], data_array[j])
-                        matrix += '{:.3f}   '.format(p)
+                        matrix += '{:.5f}   '.format(p)
                 matrix += '\n'
             print matrix
 

@@ -3,9 +3,9 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-    Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek 
+    Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek
     Braun* (*derek.braun@gallaudet.edu)
-    
+
     Produces graphs for the data files created by simulator.py.
     Last updated: 23-Jun-2017 by Derek Braun
 '''
@@ -24,34 +24,34 @@ BLUE = '#00457c'
 BUFF = '#e8d4a2'
 
 
-def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95, 
+def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
                   num_of_bins=41, crop=0.998, format='{:,.0f}',
                   rc=None, rcfname=None):
     '''
-        Plots a histogram with the two-tailed HPD region (default 95%) in a 
-        different color. This coloring sets this routine apart from 
+        Plots a histogram with the two-tailed HPD region (default 95%) in a
+        different color. This coloring sets this routine apart from
         pyplot.hist()
-        
+
         Accepts:
             filename        a filename for the histogram to be written
             dist            a list of values
             title           an optional title
             xlabel          an optional xlabel
-            
+
             hpd             optional hpd (default is 95%)
             num_of_bins     number of histogram bins, normally set to 41
             crop            where you want the histogram to stop. best to leave alone
             rc              a rcparams dict. This takes precedence over
                             rcfname.
             rcfname         a rcparams file to load to set graph style.
-            
+
         Saves a .pdf plot to filename. Doesn't return anything.
     '''
-    # test num_of_bins and raise an error if it won't work    
+    # test num_of_bins and raise an error if it won't work
     if num_of_bins == 'auto':
         num_of_bins = min([len(dist)/100,100])
     if num_of_bins % 2 == 0:                    # force an odd number,
-        num_of_bins += 1                        # because numpy.histogram 
+        num_of_bins += 1                        # because numpy.histogram
     if len(dist) < num_of_bins:                 # is off with even numbers of bins
         raise('Cannot produce histogram. There must be more data than bins.')
     hist, bin_edges = numpy.histogram(dist, bins=num_of_bins)
@@ -70,9 +70,9 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
     crop_max_index = int((1.+crop)/2.*len(dist))
     crop_min = dist[crop_min_index]
     crop_max = dist[crop_max_index]
-    
+
     # organize bins based on HPD (for coloring) and
-    # find bin indexes for cropping (crop_min_bin_index and crop_max_bin_index) and HPD labeling 
+    # find bin indexes for cropping (crop_min_bin_index and crop_max_bin_index) and HPD labeling
     # (hpd_min_bin_index and hpd_max_bin_index)
     crop_min_bin_index = False
     crop_max_bin_index = False
@@ -96,7 +96,7 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
             sig_bars.append(0)
             insig_bars.append(bin)
         if median_bin_index is False and n >= median_index:
-            median_bin_index = i            
+            median_bin_index = i
         if not crop_max_bin_index and n >= crop_max_index:
             crop_max_bin_index = i
             break
@@ -106,13 +106,13 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
         plt.subplot(111)
         plt.bar(numpy.arange(len(sig_bars)), sig_bars, width=1,
                 facecolor=BLUE)
-        plt.bar(numpy.arange(len(insig_bars)), insig_bars, width=1, 
+        plt.bar(numpy.arange(len(insig_bars)), insig_bars, width=1,
                 facecolor=BUFF)
         if xlabel:
             plt.xlabel(xlabel)
         # The ticks are crop_min, median, and crop_max
         tick_pos = [hpd_min_bin_index-0.5, median_bin_index, hpd_max_bin_index-0.5]
-        tick_labels = ['{:.3f}'.format(hpd_min), '{:.3f}'.format(median), 
+        tick_labels = ['{:.3f}'.format(hpd_min), '{:.3f}'.format(median),
                        '{:.3f}'.format(hpd_max)]
         plt.xticks(tick_pos, tick_labels)
         # print and label hpd lines
@@ -133,15 +133,15 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
         plt.close()
 
 
-def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None, 
+def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
                    rc=None, rcfname=None):
     '''
-        Produces and writes a plot where each proposal is represented by its 
+        Produces and writes a plot where each proposal is represented by its
         own line.
-        
+
         This type of plot is generally deprecated because it creates
         enormously large vector files that may not be printable.
-        
+
         Accepts:
             filename        the file to be written
             X               an array of x values
@@ -167,21 +167,21 @@ def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
                 ax.set_ylabel(ylabel, rotation=0)
             else:
                 ax.set_ylabel(ylabel)
-        ax.plot(X, Ya, color=BLUE, alpha=50./len(Ya[0]))  # adjust the numerator to 
+        ax.plot(X, Ya, color=BLUE, alpha=50./len(Ya[0]))  # adjust the numerator to
                                                           # get the appropriate line
                                                           # darkness
         plt.savefig(filename, transparent=True)
-        plt.close()   
+        plt.close()
 
 
 
-def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None, 
+def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
                  gradients=32, format='{:.3%}', rc=None, rcfname=None):
     '''
         Produces a contour plot.
-        The median values and 95% credible intervals are also represented 
+        The median values and 95% credible intervals are also represented
         with lines.
-        
+
         Accepts:
             filename        the file to be written
             X               an array of x values
@@ -190,7 +190,7 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             xlabel          x axis label string
             ylabel          y axis label string
             gradients       the number of gradients. More gradients means
-                            a smoother density plot at the cost of a larger 
+                            a smoother density plot at the cost of a larger
                             vector file.
             rc              a rcparams dict. This takes precedence over
                             rcfname.
@@ -242,15 +242,15 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
         for i, Yg in enumerate(Ygrads):
             ax.fill_between(X, Yg[0], Yg[1], color=BUFF, alpha=1./(gradients/4.))
         ax.plot(X, Y_upper_cis, color=BLUE)
-        #ax.set_yticklabels([format.format(x) for x in ax.get_yticks().tolist()]) 
+        #ax.set_yticklabels([format.format(x) for x in ax.get_yticks().tolist()])
         #ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter())
-        ax.text(max(X)*1.02, Y_upper_cis[-1], format.format(Y_upper_cis[-1]), 
+        ax.text(max(X)*1.02, Y_upper_cis[-1], format.format(Y_upper_cis[-1]),
                 va='center', ha='left')
         ax.plot(X, Y_medians, color=BLUE)
-        ax.text(max(X)*1.02, Y_medians[-1], format.format(Y_medians[-1]), 
+        ax.text(max(X)*1.02, Y_medians[-1], format.format(Y_medians[-1]),
                 va='center', ha='left')
         ax.plot(X, Y_lower_cis, color=BLUE)
-        ax.text(max(X)*1.02, Y_lower_cis[-1], format.format(Y_lower_cis[-1]), 
+        ax.text(max(X)*1.02, Y_lower_cis[-1], format.format(Y_lower_cis[-1]),
                 va='center', ha='left')
         plt.savefig(filename, transparent=True)
         plt.close()
@@ -264,31 +264,31 @@ if __name__ == '__main__':
                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('filename',
                         help = 'filename for data file')
-    parser.add_argument('-c','--contour_plot',action='store_true', 
+    parser.add_argument('-c','--contour_plot',action='store_true',
                         default=False,
                         help = 'create contour plots')
-    parser.add_argument('-m','--multiline_plot',action='store_true', 
+    parser.add_argument('-m','--multiline_plot',action='store_true',
                         default=False,
                         help = 'create multiline plots')
     parser.add_argument('-i','--histogram',action='store_true',
                         default=False,
                         help = 'create histograms')
     args=parser.parse_args()
-    
+
     if os.path.isfile(args.filename):
         e = fileio.Experiment(args.filename)
         print "  Reading '{}'".format(args.filename)
-        print "    {:,} simulations x {:,} generations".format(len(e.data[0]), int(e.gen))
+        print "    {:,} simulations x {:,} generations".format(len(e.data[0]), int(e.generations))
     else:
         print '  File not found.'
-    
+
     title='pop size={:,}    fitness={:.1f}    homogamy={:.1f}    n={:,} simulations'\
           ''.format(int(e.constant_pop_size),
                     float(e.aa_fitness),
                     float(e.aa_homogamy),
                     len(e.data[0]))
     rc = {'axes.titlesize': 10}
-    
+
     if args.contour_plot:
         X = e.select('gen',0)
         for rcfname in ['print.rc']:
@@ -302,7 +302,7 @@ if __name__ == '__main__':
                              ylabel=var,
                              rc=rc,
                              rcfname=rcfname)
-                print "  Writing '{}'".format(filename) 
+                print "  Writing '{}'".format(filename)
     if args.multiline_plot:
         X = e.select('gen',0)
         for rcfname in ['print.rc']:

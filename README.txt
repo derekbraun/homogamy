@@ -1,13 +1,48 @@
 homogamy
 
-Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek
-Braun* (*derek.braun@gallaudet.edu)
+Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
+(*derek.braun@gallaudet.edu)
 
 Contains routines to standardize file I/O and to select columns and
 keywords from the resulting data files. Greatly simplifies coding
 elsewhere.
 
 To clone this project: git clone https://github.com/derekbraun/homogamy.git
+
+NANCE AND Kearsey
+First 5 generations: fitness 0
+Homogamy increases to 90% by gen 5
+20 more generations (400 years) representing 1800-2200
+Population size fixed at 200,000
+
+
+TO-DO LIST
+
+1.  Fix stats.py
+    Have it also show tiny p-values in E+ notation
+    Allow for it to compare other vars (eg F and amount of deafness)
+
+
+1.  Final simulations parameters:
+    x 0% homogamy, normal fitness, adventitious deafness
+    x 90% homogamy, normal fitness, adventitious deafness
+    x 0% homogamy, 2x fitness, adventitious deafness
+    x 90% homogamy, 2x fitness, adventitious deafness
+    0 % homogamy, normal fitness, no adventitious deafness
+    90 % homogamy, normal fitness, no adventitious deafness
+    0 % homogamy, normal fitness, adventitious deafness, small population (50k?)
+    90% homogamy, normal fitness, adventitious deafness, small population (50k?)
+
+5.  Fix grapher.py to make more beautiful graphs:
+    a. incorporate scaling (e.g. per 100,000)
+    b. more lines than just 5% and 95%
+    c. fix label formatting..
+
+6.  Maybe: Base population size on actual historical population growth
+    Determine whether population model has any real effect on frequencies.
+    (report this in the manuscript)
+
+
 
 
 MODULES
@@ -36,23 +71,6 @@ stats.py        Performs statistical analyses comparing data files created by
 
                 stats.py --help to get parameters.
 
-
-
-TO-DO LIST
-
-
-1.		Add adventitiously deaf.
-
-2.              Run simulations! Parameters:
-                    popsize 20,000, 0% homogamy, normal fitness
-                    popsize 20,000, 90% homogamy, normal fitness
-                    popsize 20,000, 0% homogamy, 2x fitness
-                    popsize 20,000, 90% homogamy, 2x fitness
-
-                    same again for popsize 100,000
-
-3.              Fix grapher.py to incorporate scaling (e.g. per 100,000)
-                Also fix label formatting.
 
 
 
