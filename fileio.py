@@ -22,7 +22,7 @@ PARAMS = ['experiment_date',
           'generations',
           'a',
           'aa_fitness',
-          'deafness_freq',
+          'deaf',
           'aa_homogamy',
           'simulations']
 

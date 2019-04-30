@@ -31,12 +31,6 @@ if __name__ == '__main__':
                         help = 'the variables to compare among populations. a, aa, or F.')
     args=parser.parse_args()
 
-    # Check to see if the field is a valid one
-    if args.field not in ['a','aa']:
-        print 'Field {} is not valid. Please try again with "a" or "aa".'\
-              ''.format(args.field)
-        exit()
-
     experiments = []
     for filename in args.filenames:
         # Check to see if each individual file exists
@@ -47,9 +41,16 @@ if __name__ == '__main__':
             print "File {} not found.".format(filename)
             exit()
 
+    # Check to see if the field is a valid one
+    for e in experiments:
+        if args.field not in e.headers:
+            print 'Field ""{}"" is not a header in this/these data file(s).'\
+                  ''.format(args.field)
+            exit()
+
     print
-    print '{:30}   {:^8}   {:^8}  {:^21}'.format('** Summary Statistics **', 'start', \
-                                                 'end', '')
+    print '** Summary Statistics for "{}" **'.format(args.field)
+    print '{:30}   {:^8}   {:^8}  {:^21}'.format('', 'start', 'end', '')
     print '{:30}   {:^8}   {:^8}  {:^21}'.format('filename','(median)','(median)','95% CI')
     for e in experiments:
         # select first and last set of values
@@ -64,8 +65,9 @@ if __name__ == '__main__':
         print '{:30}   {:0.6f}   {:0.6f}  {:^21}'.format(e.filename, start_median, \
                                              end_median, ci)
     print
-    print '** Shapiro-Wilk test of normality **'.format(filename)
-    print '{:30}   {:^5}   {:^14}'.format('filename', 'p', 'interpretation')
+    print '** Shapiro-Wilk test of normality for "{}" **'.format(args.field, \
+                                                                 filename)
+    print '{:30}   {:^8}   {:^14}'.format('filename', 'p-value', 'interpretation')
     data_array = []
     for e in experiments:
         # select last set of values
@@ -78,34 +80,37 @@ if __name__ == '__main__':
             w, p = stats.shapiro(random.sample(X, 5000))
         else:
             w, p = stats.shapiro(X)
-        print '{:30}   {:0.3f}   {:^14}'.format (e.filename, p, 'not normal' if p < 0.05 else 'normal')
+        print '{:30}   {:^8.3g}   {:^14}'.format (e.filename, p, 'not normal' \
+                                                  if p < 0.05 else 'normal')
 
     # Running the tests
     if len(experiments) == 2:
         print ''
-        print '** Mann-Whitney U test **'
-        print '{:5}   {:3}'.format('U', 'p-value')
+        print '** Mann-Whitney U test for "{}" **'.format(args.field)
+        print '{:5}   {:^8}'.format('U', 'p-value')
         U, p = stats.mstats.mannwhitneyu(data_array[0], data_array[1])
-        print "{:<5.1f}   {:.3f}".format(U, p)
+        print "{:<5.1f}   {:^8.5g}".format(U, p)
         print
     else:
         print ''
-        print '** Kruskal-Wallis one-way analysis of variance **'
-        print '{:^5}   {:^5}'.format('H', 'p')
+        print '** Kruskal-Wallis one-way analysis of variance for "{}" **' \
+              ''.format(args.field)
+        print '{:^8}   {:^8}'.format('H', 'p-value')
         H, p = stats.mstats.kruskal(*data_array)
-        print "{:<5.1f}   {:.3f}".format(H, p)
+        print "{:<8.1f}   {:^8.5g}".format(H, p)
         print
         if p <= 0.5:
-            print '** post-hoc pairwise Mann-Whitney U test **'
+            print '** post-hoc pairwise Mann-Whitney U test for "{}" **' \
+                  ''.format(args.field)
             matrix = ''
             for i in range(len(data_array)):
                 for j in range(len(data_array)):
                     if j >= i:
-                        matrix += '{:^7}   '.format('-')
+                        matrix += '{:^8}   '.format('-')
                     else:
-                        U, p = stats.mstats.mannwhitneyu(data_array[i], data_array[j])
-                        matrix += '{:.5f}   '.format(p)
+                        U, p = stats.mstats.mannwhitneyu(data_array[i],
+                                                         data_array[j])
+                        matrix += '{:^8.3g}   '.format(p)
                 matrix += '\n'
             print matrix
-
     print 'Done. '

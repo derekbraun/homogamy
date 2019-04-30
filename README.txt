@@ -18,9 +18,7 @@ Population size fixed at 200,000
 
 TO-DO LIST
 
-1.  Fix stats.py
-    Have it also show tiny p-values in E+ notation
-    Allow for it to compare other vars (eg F and amount of deafness)
+1.  Fix variable names
 
 
 1.  Final simulations parameters:
