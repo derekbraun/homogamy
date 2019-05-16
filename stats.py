@@ -3,19 +3,20 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-    Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
-    (*derek.braun@gallaudet.edu)
+Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
+(*derek.braun@gallaudet.edu)
 
-    Performs statistical analyses comparing data files created by simulator.py.
+Performs statistical analyses comparing data files created by simulator.py.
 
-    Last updated: 11-Jul-2017 by Maggie Gray
+Last updated: 2-May-2019 by Derek Braun
 '''
 
+import sys
+import os
 import argparse
 import numpy
 import random
 import fileio
-import os
 from scipy import stats
 
 #
@@ -26,10 +27,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('filenames', nargs='+',
-                        help = 'filenames for data files')
+                        help = 'filenames for data files.')
     parser.add_argument('-f', '--field', action='store',
                         help = 'the variables to compare among populations. a, aa, or F.')
     args=parser.parse_args()
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
     experiments = []
     for filename in args.filenames:
@@ -44,8 +48,8 @@ if __name__ == '__main__':
     # Check to see if the field is a valid one
     for e in experiments:
         if args.field not in e.headers:
-            print 'Field ""{}"" is not a header in this/these data file(s).'\
-                  ''.format(args.field)
+            print 'Field ""{}"" is not a header in {}.'\
+                  ''.format(args.field, e.filename)
             exit()
 
     print

@@ -14,17 +14,14 @@
 '''
 
 
-PARAMS = ['experiment_date',
-          'source_code',
-          'filename',
-          'cpu',
-          'constant_pop_size',
-          'generations',
-          'a',
-          'aa_fitness',
-          'deaf',
-          'aa_homogamy',
-          'simulations']
+METADATA = ['experiment_date',
+            'cpu',
+            'constant_pop_size',
+            'generations',
+            'a',
+            'aa_fitness',
+            'deaf',
+            'aa_homogamy']
 
 import os
 import time
@@ -56,7 +53,7 @@ class Experiment:
         as for quick statistics and recovering data columns.
 
         This code is written to be very flexible. The names of the metadata
-        headers are stored in the global variable PARAMS.
+        headers are stored in the global variable METADATA.
     '''
     def __init__(self, filename=None, **kwargs):
         '''
@@ -70,7 +67,7 @@ class Experiment:
         '''
 
         if filename is None:
-            for key in PARAMS:
+            for key in METADATA:
                 if key in kwargs.keys():
                     setattr(self, key, kwargs[key])
                 else:
@@ -98,7 +95,7 @@ class Experiment:
             return False
         else:
             h = []
-            for param in PARAMS:
+            for param in METADATA:
                 h += [['# {} = {}'.format(param, getattr(self, param))]]
             h += [self.headers]
             f = open(self.filename,'wb')
@@ -112,7 +109,7 @@ class Experiment:
             Returns a string with all the metadata.
         '''
         s = ''
-        for param in PARAMS:
+        for param in METADATA:
             if hasattr(self, param):
                 s += '{} = {}\n'.format(param, getattr(self, param))
         return s

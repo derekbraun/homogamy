@@ -133,54 +133,13 @@ def hist_with_hpd(filename, dist, title=None, xlabel=None, hpd=0.95,
         plt.close()
 
 
-def multiline_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
-                   rc=None, rcfname=None):
-    '''
-        Produces and writes a plot where each proposal is represented by its
-        own line.
-
-        This type of plot is generally deprecated because it creates
-        enormously large vector files that may not be printable.
-
-        Accepts:
-            filename        the file to be written
-            X               an array of x values
-            Ya              an array of an array of y values
-            title           the plot title
-            xlabel          x axis label string
-            ylabel          y axis label string
-            rc              a rcparams dict. This takes precedence over
-                            rcfname.
-            rcfname         a rcparams file to load to set graph style.
-    '''
-    with matplotlib.rc_context(rc=rc, fname=rcfname):
-        plt.clf()
-        fig = plt.figure()
-        if title is not None:
-            plt.title(title)
-        ax = fig.add_subplot(111)
-        ax.set_xlim(0,max(X))       # necessary to have the graph start at 0,0
-        if xlabel is not None:
-            ax.set_xlabel(xlabel)
-        if ylabel is not None:
-            if len(ylabel) < 4:
-                ax.set_ylabel(ylabel, rotation=0)
-            else:
-                ax.set_ylabel(ylabel)
-        ax.plot(X, Ya, color=BLUE, alpha=50./len(Ya[0]))  # adjust the numerator to
-                                                          # get the appropriate line
-                                                          # darkness
-        plt.savefig(filename, transparent=True)
-        plt.close()
-
-
-
 def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
-                 gradients=32, format='{:.3%}', rc=None, rcfname=None):
+                 ylim=None, text_format='{:.3%}', rc=None, rcfname=None):
     '''
-        Produces a contour plot.
-        The median values and 95% credible intervals are also represented
-        with lines.
+        Produces a contour plot that is like a continuous boxplot.
+        The 25% and 75% quartiles, median, 2% and 98% credible intervals are all
+        represented with lines. There is shading between the 25% and 75%
+        quartiles just like with a boxplot.
 
         Accepts:
             filename        the file to be written
@@ -189,49 +148,37 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             title           the plot title
             xlabel          x axis label string
             ylabel          y axis label string
-            gradients       the number of gradients. More gradients means
-                            a smoother density plot at the cost of a larger
-                            vector file.
+            text_format     format string for label text
+            ylim            y limit
             rc              a rcparams dict. This takes precedence over
                             rcfname.
             rcfname         a rcparams file to load to set graph style.
     '''
     # calculate gradient
-    Y_upper_cis = []
+    Y_98 = []
+    Y_75 = []
     Y_medians = []
-    Y_lower_cis = []
-    Ygrads = []
+    Y_25 = []
+    Y_2 = []
     for Y in Ya:
         Y = list(Y)
         Y = map(float, Y)
         Y.sort()
-        Y_upper_cis.append(Y[int(0.975*len(Y))])
+        Y_98.append(Y[int(0.98*len(Y))])
+        Y_75.append(Y[int(0.75*len(Y))])
         Y_medians.append(numpy.median(Y))
-        Y_lower_cis.append(Y[int(0.025*len(Y))])
-    Ygrads = []
-    for i in range(gradients):
-        Yugs=[]
-        Ylgs=[]
-        for Y in Ya:
-            # horribly inefficient
-            Y = list(Y)
-            Y = map(float, Y)
-            Y.sort()
-            step = len(Y)/(2*gradients)
-            uidx = len(Y) - i*step - 1
-            lidx = i*step
-            Yugs.append(Y[uidx])
-            Ylgs.append(Y[lidx])
-        Ygrads.append((Yugs,Ylgs))
+        Y_25.append(Y[int(0.25*len(Y))])
+        Y_2.append(Y[int(0.02*len(Y))])
 
     with matplotlib.rc_context(rc=rc, fname=rcfname):
         plt.clf()
         fig = plt.figure()
+        plt.locator_params(axis='x', nbins=4)
         if title is not None:
             plt.title(title)
         ax = fig.add_subplot(111)
-        ax.set_xlim(0,max(X))       # necessary to have the graph start at 0,0
-        ax.set_ylim(0,max(Y))       # necessary to have the graph start at 0,0
+        ax.set_xlim(0,max(X))                            # necessary to have the graph start at 0,0
+        ax.set_ylim(0,max(Y) if ylim is None else ylim)  # necessary to have the graph start at 0,0
         if xlabel is not None:
             ax.set_xlabel(xlabel)
         if ylabel is not None:
@@ -239,18 +186,20 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
                 ax.set_ylabel(ylabel, rotation=0)
             else:
                 ax.set_ylabel(ylabel)
-        for i, Yg in enumerate(Ygrads):
-            ax.fill_between(X, Yg[0], Yg[1], color=BUFF, alpha=1./(gradients/4.))
-        ax.plot(X, Y_upper_cis, color=BLUE)
+        #shade in between the 25% and 75% quartiles, just like a boxplot
+        ax.fill_between(X, Y_75, Y_25, color=BUFF, alpha=0.5)
+        ax.plot(X, Y_98, color=BLUE, lw=0.5)
+        ax.plot(X, Y_75, color=BLUE)
         #ax.set_yticklabels([format.format(x) for x in ax.get_yticks().tolist()])
         #ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter())
-        ax.text(max(X)*1.02, Y_upper_cis[-1], format.format(Y_upper_cis[-1]),
+        ax.text(max(X)*1.02, Y_98[-1], text_format.format(Y_98[-1]),
                 va='center', ha='left')
-        ax.plot(X, Y_medians, color=BLUE)
-        ax.text(max(X)*1.02, Y_medians[-1], format.format(Y_medians[-1]),
+        ax.plot(X, Y_medians, color=BLUE, lw=1.5)
+        ax.text(max(X)*1.02, Y_medians[-1], text_format.format(Y_medians[-1]),
                 va='center', ha='left')
-        ax.plot(X, Y_lower_cis, color=BLUE)
-        ax.text(max(X)*1.02, Y_lower_cis[-1], format.format(Y_lower_cis[-1]),
+        ax.plot(X, Y_25, color=BLUE)
+        ax.plot(X, Y_2, color=BLUE, lw=0.5)
+        ax.text(max(X)*1.02, Y_2[-1], text_format.format(Y_2[-1]),
                 va='center', ha='left')
         plt.savefig(filename, transparent=True)
         plt.close()
@@ -264,15 +213,23 @@ if __name__ == '__main__':
                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('filename',
                         help = 'filename for data file')
-    parser.add_argument('-c','--contour_plot',action='store_true',
+    parser.add_argument('-c','--contour_plot',
+                        action='store_true',
                         default=False,
-                        help = 'create contour plots')
-    parser.add_argument('-m','--multiline_plot',action='store_true',
+                        help = 'create contour plot(s)')
+    parser.add_argument('-y','--ylim',
+                        action='store',
+                        type=float,
+                        default=None,
+                        help = 'manual y limit for contour plot')
+    parser.add_argument('-t','--text_format',
+                        action='store',
+                        default='{:.3%}',
+                        help = 'text format for labels')
+    parser.add_argument('-i','--histogram',
+                        action='store_true',
                         default=False,
-                        help = 'create multiline plots')
-    parser.add_argument('-i','--histogram',action='store_true',
-                        default=False,
-                        help = 'create histograms')
+                        help = 'create histogram(s)')
     args=parser.parse_args()
 
     if os.path.isfile(args.filename):
@@ -300,24 +257,13 @@ if __name__ == '__main__':
                              title=title,
                              xlabel='Generations',
                              ylabel=var,
+                             ylim=args.ylim,
+                             text_format=args.text_format,
                              rc=rc,
                              rcfname=rcfname)
                 print "  Writing '{}'".format(filename)
-    if args.multiline_plot:
-        X = e.select('gen',0)
-        for rcfname in ['print.rc']:
-            for var in ['a','aa','F']:
-                filename = os.path.splitext(args.filename)[0] + \
-                           '.multiline_plot.{var}.{rcfname}.pdf'.format(**locals())
-                Ya = e.select(var)
-                multiline_plot(filename, X, Ya,
-                               title=title,
-                               xlabel='Generations',
-                               ylabel=var,
-                               rc=rc,
-                               rcfname=rcfname)
-                print "  Writing '{}'".format(filename)
-    if args.histogram:
+                print "Done."
+    elif args.histogram:
         for rcfname in ['print.rc']:
             for var in ['a','aa','F']:
                 filename = os.path.splitext(args.filename)[0] + \
@@ -326,7 +272,10 @@ if __name__ == '__main__':
                 hist_with_hpd(filename, dist,
                                title=title,
                                xlabel=var,
+                               text_format=args.text_format,
                                rc=rc,
                                rcfname=rcfname)
                 print "  Writing '{}'".format(filename)
-    print "Done."
+                print "Done."
+    else:
+        print "Select either -c for contour plot or -h for histogram."

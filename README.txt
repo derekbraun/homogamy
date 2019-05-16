@@ -3,43 +3,21 @@ homogamy
 Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
 (*derek.braun@gallaudet.edu)
 
-Contains routines to standardize file I/O and to select columns and
-keywords from the resulting data files. Greatly simplifies coding
-elsewhere.
-
 To clone this project: git clone https://github.com/derekbraun/homogamy.git
 
-NANCE AND Kearsey
+NANCE AND KEARSEY PARAMETERS:
+
+Nance and Kearsey (2004)
 First 5 generations: fitness 0
 Homogamy increases to 90% by gen 5
 20 more generations (400 years) representing 1800-2200
 Population size fixed at 200,000
 
-
 TO-DO LIST
 
-1.  Fix variable names
+1.  Fix grapher.py to put two lines on the same graph (e.g. aa and deaf)
 
-
-1.  Final simulations parameters:
-    x 0% homogamy, normal fitness, adventitious deafness
-    x 90% homogamy, normal fitness, adventitious deafness
-    x 0% homogamy, 2x fitness, adventitious deafness
-    x 90% homogamy, 2x fitness, adventitious deafness
-    0 % homogamy, normal fitness, no adventitious deafness
-    90 % homogamy, normal fitness, no adventitious deafness
-    0 % homogamy, normal fitness, adventitious deafness, small population (50k?)
-    90% homogamy, normal fitness, adventitious deafness, small population (50k?)
-
-5.  Fix grapher.py to make more beautiful graphs:
-    a. incorporate scaling (e.g. per 100,000)
-    b. more lines than just 5% and 95%
-    c. fix label formatting..
-
-6.  Maybe: Base population size on actual historical population growth
-    Determine whether population model has any real effect on frequencies.
-    (report this in the manuscript)
-
+2.  Fix grapher.py to terminate the graph at a boxplot?
 
 
 
@@ -51,12 +29,11 @@ fileio.py       Contains routines to standardize file I/O and to obtain data
 
 
 simulator.py    Simulation module which uses simuPOP.
-                Simulation parameters are set via setting global variables
-                and, for changing assortative mating, sometimes by changing
-                the code.
+                Simulation parameters are set via setting variables in the
+                experiment class.
 
                 simulator.py --help to get parameters
-                simulator.py --test-run to perform a single run
+                simulator.py --sample_run to perform a single run
 
 
 grapher.py      Produces graphs for the data files created by Simulator.py.
@@ -75,8 +52,7 @@ stats.py        Performs statistical analyses comparing data files created by
 USEFUL REFERENCES FOR simuPOP OBJECTS
 
 This is a list of simuPOP objects and methods that are particularly important
-for troubleshooting. SimuPOP's variable interface is murky at best and really
-does not follow Python conventions. During simulations, simuPOP keeps variables
+for troubleshooting. During simulations, simuPOP keeps variables
 in a dict called Population.vars() or as attributes of an object
 called Population.dvars()
 
@@ -100,8 +76,7 @@ pop.individual(n).setAffected(True)         sets the individual to Affected
                                             without changing genotype
 
 Population.evolve() has an "operator" called Stat which calculates things and
-stores them in the local namespace under an unspecified name (argh!!!).
-But this name could probably be figured out by inspecting Population.vars().
+stores them in the local namespace.
 
 
 TROUBLESHOOTING simuPOP
@@ -117,7 +92,7 @@ moduleInfo                      Outputs a dict with information about the
 
 
 
-RUNNING simuPOP from the Python interactive
+RUNNING a sample simuPOP from the Python interactive
 
 import simuPOP as sim
 pop = sim.Population(10000, loci=[1])
