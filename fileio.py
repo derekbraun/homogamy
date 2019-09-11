@@ -1,4 +1,4 @@
-#!/usr/local/bin/python -u
+#!/usr/local/bin/python3 -u
 # -*- coding: utf-8 -*-
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
@@ -15,6 +15,7 @@
 
 
 METADATA = ['experiment_date',
+            'simuPOP_version',
             'cpu',
             'constant_pop_size',
             'generations',
@@ -22,6 +23,19 @@ METADATA = ['experiment_date',
             'aa_fitness',
             'deaf',
             'aa_homogamy']
+
+INDEP_VARS = ['constant_pop_size',
+            'generations',
+            'a',
+            'aa_fitness',
+            'deaf',
+            'aa_homogamy']
+
+NAME_DICT = {'a'  : 'Allelic frequency',
+             'aa' : 'Deaf individuals',
+             'aa_homogamy' : 'Homogamy',
+             'aa_fitness' : 'Fitness',
+             'F' : 'F'}
 
 import os
 import time
@@ -68,7 +82,7 @@ class Experiment:
 
         if filename is None:
             for key in METADATA:
-                if key in kwargs.keys():
+                if key in list(kwargs.keys()):
                     setattr(self, key, kwargs[key])
                 else:
                     setattr(self, key, None)
@@ -78,8 +92,8 @@ class Experiment:
             self.filename = filename
             self._read()
         elif filename is not None and len(kwargs) > 0:
-            raise BaseException, 'You cannot pass both a filename and metadata'\
-                                 ' to Experiment.__init__.'
+            raise BaseException('You cannot pass both a filename and metadata'\
+                                 ' to Experiment.__init__.')
 
 
     def write_metadata(self, overwrite=False):
@@ -98,7 +112,7 @@ class Experiment:
             for param in METADATA:
                 h += [['# {} = {}'.format(param, getattr(self, param))]]
             h += [self.headers]
-            f = open(self.filename,'wb')
+            f = open(self.filename,'w')
             o = csv.writer(f, dialect=csv.excel_tab)
             o.writerows(h)
             f.close()
@@ -108,10 +122,10 @@ class Experiment:
         '''
             Returns a string with all the metadata.
         '''
-        s = ''
+        s = 'Experiment parameters:\n'
         for param in METADATA:
             if hasattr(self, param):
-                s += '{} = {}\n'.format(param, getattr(self, param))
+                s += '   {} = {}\n'.format(param, getattr(self, param))
         return s
 
 
@@ -126,7 +140,7 @@ class Experiment:
                         False   if self.filename file doesn't exist
         '''
         if os.path.isfile(self.filename):
-            f = open(self.filename,'ab')
+            f = open(self.filename,'a')
             o = csv.writer(f, dialect=csv.excel_tab)
             o.writerows(rows)
             f.close()
@@ -160,7 +174,7 @@ class Experiment:
                     self.data += [row]
             # This clever Python shorthand transposes a table. It will cause data
             # truncation if the table does not have consistent dimensions.
-            self.data = zip(*self.data)
+            self.data = list(zip(*self.data))
             return True
         return False
 
@@ -184,20 +198,3 @@ class Experiment:
                 if param in h:
                     l.append(col[row])
         return numpy.array(l, dtype=float)
-
-
-    def ci(self, param):
-        '''
-            Calculates the median and 95% credible interval.
-            Selects all instances of a data column with name param.
-            Returns a list of tuples (2.5%, median, and 97.5%) for each column.
-        '''
-        lt = []
-        for h, col in zip(self.headers, self.data):
-            if param in h:
-                col = map(float, col)
-                col.sort()
-                lt.append((col[int(0.975*len(col))],
-                           numpy.median(col),
-                           col[int(0.025*len(col))]))
-        return lt

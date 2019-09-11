@@ -15,10 +15,10 @@ Population size fixed at 200,000
 
 TO-DO LIST
 
-1.  Fix grapher.py to put two lines on the same graph (e.g. aa and deaf)
-
-2.  Fix grapher.py to terminate the graph at a boxplot?
-
+1.  Fix grapher.py to:
+    a. Accept field command line parameter
+    b. Terminate graph at a boxplot
+    c. Put two lines on the same graph (e.g. aa and deaf)
 
 
 MODULES

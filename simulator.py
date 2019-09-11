@@ -1,4 +1,4 @@
-#!/usr/local/bin/python -u
+#!/usr/local/bin/python3 -u
 # -*- coding: utf-8 -*-
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
@@ -18,7 +18,7 @@ Last updated: 2-May-2019 by Derek Braun
 #   20 more generations (400 years) representing 1800-2200
 #   Population size fixed at 200,000
 
-# defaults; these can be set otherwise by passing arguments
+# defaults; some of these can be set otherwise by passing arguments
 CONSTANT_POP_SIZE   = 200      # Nance and Kearsey: 200k
 a_FREQ              = 0.01304  # Nance and Kearsey: 0.01304
 aa_FITNESS          = 1.0      # Nance and Kearsey: 1.0
@@ -48,7 +48,7 @@ def customChooser(pop, subPop):
         mating scheme.
 
         The algorithm goes through each eligible person listwise.
-        If that person is deaf, that person marries deaf or not based on the
+        If that person is deaf, that person marries deaf or hearing based on the
         probability set by aa_homogamy. Further, if either
         parent is deaf, their number of offspring is based on the
         fitness set by aa_fitness (non-integer fitnesses are handled using a
@@ -108,29 +108,32 @@ def customChooser(pop, subPop):
     # move some "hearing" individuals into the deaf bin - making them deaf -
     # to reflect non-Cx26 causes of congenital deafness. These individuals will
     # mate with other deaf but will not pass down Cx26
-    adv_deaf_target = int(round((pop.dvars().deaf - pop.dvars().a**2) * pop.dvars().constant_pop_size * 1000))
-    while adv_deaf_target > 0 and len(hearing_parents) > 0:
-        deaf_parents.append(hearing_parents.pop())
-        adv_deaf_target -= 1
+    for i in range(pop.dvars().adv_deaf_target):
+        if len(hearing_parents) > 0:
+            deaf_parents.append(hearing_parents.pop())
+        else:
+            break
     random.shuffle(deaf_parents)
-    pop.dvars().deaf_size = len(deaf_parents)
 
     # calculate how many deaf-deaf marriages we need, then marry them off
-    homogamy_target = round(pop.dvars().aa_homogamy * len(deaf_parents)/2)
-    ddm = 0.                            # deaf-deaf marriages
-    dp = float(len(deaf_parents))       # deaf parents
-    while len(deaf_parents) and homogamy_target > 0:
-        couples += mate_with_fitness(deaf_parents.pop(), deaf_parents.pop())
-        ddm += 1.
-        homogamy_target -= 1
-    pop.dvars().homogamy = 2.*ddm/dp
+    dp = float(len(deaf_parents))
+    target = int(round(pop.dvars().aa_homogamy * len(deaf_parents)/2))
+    for i in range(target):
+        if len(deaf_parents) >= 2:
+            couples += mate_with_fitness(deaf_parents.pop(), deaf_parents.pop())
+        else:
+            break
+    if dp > 0:
+        pop.dvars().homogamy = 2*target/dp
+    else:
+        pop.dvars().homogamy = -1
 
-    # Move remaining deaf parents into the hearing bin, so that their alleles
-    # are not lost. Then, mate off the rest
-    hearing_parents += deaf_parents
-    random.shuffle(hearing_parents)
-    while len(hearing_parents):
-        couples += mate_with_fitness(hearing_parents.pop(), hearing_parents.pop())
+    # Merge remaining parents, so that their alleles are not lost.
+    # Then, mate them off
+    remaining_parents = hearing_parents + deaf_parents
+    random.shuffle(remaining_parents)
+    while len(remaining_parents) > 2:
+        couples += mate_with_fitness(remaining_parents.pop(), remaining_parents.pop())
 
     # This is what's called whenever the generator function is called.
     while True:
@@ -168,6 +171,7 @@ def simuAssortativeMatingWithFitness(e):
     pop.dvars().aa_fitness          = e.aa_fitness
     pop.dvars().aa_homogamy         = e.aa_homogamy
     pop.dvars().deaf                = e.deaf
+    pop.dvars().adv_deaf_target     = int(round((e.deaf - e.a**2) * e.constant_pop_size * 1000))
 
     # These will hold the final data
     pop.dvars().headers             = []
@@ -180,12 +184,13 @@ def simuAssortativeMatingWithFitness(e):
         postOps = [sim.Stat(alleleFreq=[0], genoFreq=[0]),
                    sim.PyExec(r"headers += ['gen','A', 'a',"\
                                "'AA', 'Aa', 'aa', 'deaf', 'AA_size', 'Aa_size', " \
-                               "'aa_size',  'deaf_size', 'homogamy', 'F']"),
-                   sim.PyExec(r"F = 1.0-((genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/" # F          \
-                               "(2.0*alleleFreq[0][0]*alleleFreq[0][1]))"\
-                               "if alleleFreq[0][0] != 0.0 and alleleFreq[0][1]"\
-                               "!= 0.0 else 0.0"),
-                   sim.PyExec(r"row += [gen, "                                        \
+                               "'aa_size',  'deaf_size', 'homogamy', 'F'] \n" \
+                               "F = 1.0-((genoFreq[0][(0,1)]+genoFreq[0][(1,0)])/" # F          \
+                               "(2.0*alleleFreq[0][0]*alleleFreq[0][1])) "\
+                               "if alleleFreq[0][0]*alleleFreq[0][1] > 0. "\
+                               "else 0. \n" \
+                               "deaf_size = min(genoNum[0][(1,1)] + adv_deaf_target, constant_pop_size*1000) \n"\
+                               "row += [gen, "                           # generation \
                                "alleleFreq[0][0], "                      # A          \
                                "alleleFreq[0][1], "                      # a          \
                                "genoFreq[0][(0,0)],"                     # AA         \
@@ -197,7 +202,7 @@ def simuAssortativeMatingWithFitness(e):
                                "genoNum[0][(1,1)], "                     # aa_size    \
                                "deaf_size, "                             # deaf_size  \
                                "homogamy, "                              # homogamy   \
-                               "F if F>0.0 else 0.0]")                   # F          \
+                               "F if F>0. else 0.]")                     # F          \
                    ],
         gen = e.generations
     )
@@ -246,42 +251,42 @@ if __name__ == '__main__':
     # This quick run obtains the headers for the data file.
     sample_run = simuAssortativeMatingWithFitness(experiment)
     experiment.cpu = subprocess.check_output(['/usr/sbin/sysctl', "-n", \
-                                     "machdep.cpu.brand_string"]).strip() + \
+                                     "machdep.cpu.brand_string"]).decode().strip() + \
                                      " ({} threads)".format(multiprocessing.cpu_count())
+    experiment.simuPOP_version = sim.__version__
 
     if not args.write:
         # just show the results from the quick sample run and exit
-        print experiment.metadata()
+        print(experiment.metadata())
         numcols = sample_run['headers'][1:].index("gen") + 1
         for h in sample_run['headers'][0:numcols]:
-            print "{h:>9}".format(h=h),
-        print
+            print("{h:>9}".format(h=h), end=' ')
+        print()
         for h in sample_run['headers'][0:numcols]:
-            print " --------",
-        print
-        for gen in range(0,len(sample_run['row'])/numcols):
+            print(" --------", end=' ')
+        print()
+        for gen in range(0,len(sample_run['row'])//numcols):
             for datum in sample_run['row'][numcols*gen:numcols*(1+gen)]:
                 if type(datum) is int or datum == int(datum):
-                    print " {datum:>8,}".format(datum=int(datum)),
+                    print(" {datum:>8,}".format(datum=int(datum)), end=' ')
                 else:
-                    print " {datum:>8.6f}".format(datum=datum),
-            print
-        print 'Done.'
+                    print(" {datum:>8.6f}".format(datum=datum), end=' ')
+            print()
+        print('Done.')
         exit()
     else:
         if fileio.create_folder(args.path):
-            print "Created folder '{}'".format(args.path)
+            print('Creating folder...\n   {}'.format(args.path))
         experiment.headers = sample_run['headers']
         experiment.filename = os.path.join(args.path,
                                            'pop{experiment.constant_pop_size}k'\
                                            '_fit{experiment.aa_fitness}'       \
                                            '_hom{experiment.aa_homogamy:.2}'   \
-                                           '_deaf{experiment.deaf}'            \
                                            '.tsv'.format(**locals()))
         experiment.write_metadata(overwrite=True)
-        print "Created '{}'".format(experiment.filename)
-        print experiment.metadata()
-        print "Running {:,} simulations...".format(SIMULATIONS)
+        print('Creating file...\n   {}'.format(experiment.filename))
+        print(experiment.metadata())
+        print('Running {:,} simulations...'.format(SIMULATIONS))
 
         def _worker():
             '''
@@ -314,14 +319,14 @@ if __name__ == '__main__':
             sims += mp_chunk_size
             rate = mp_chunk_size/(time.time()-start_time)
             time_remaining = (SIMULATIONS-sims)/rate if rate > 0 else 0
-            print '{:,} simulations completed ' \
+            print('   {:,} simulations completed ' \
                   '({:,.0f}/min) '\
                   '{} remaining.'\
-                  ''.format(sims, 60*rate, _format_time(time_remaining))
+                  ''.format(sims, 60*rate, _format_time(time_remaining)))
             # mp_chunk_size is dynamically adjusted based on actual
             # execution speed such that file writes occur once per minute.
             mp_chunk_size = max(int(300*rate - 300*rate%cpu_count), cpu_count)
             if sims + mp_chunk_size > SIMULATIONS:
                 mp_chunk_size = SIMULATIONS-sims
-        print 'Saved to {}.'.format(experiment.filename)
+        print('Saving file...\n   {}'.format(experiment.filename))
         exit()
