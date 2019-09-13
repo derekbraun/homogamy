@@ -1,4 +1,4 @@
-#!/usr/local/bin/python -u
+#!/usr/local/bin/python3 -u
 # -*- coding: utf-8 -*-
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     for e in experiments:
         # select first and last set of values
         Xo = e.select(args.field)[0]
-        X = e.select(args.field)[-1]
+        X = e.select_endpoint(args.field)
         # Find the mean and stdev
         start_median = numpy.median(Xo)
         end_median = numpy.median(X)
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     data_array = []
     for e in experiments:
         # select last set of values
-        X = e.select(args.field)[-1]
+        X = e.select_endpoint(args.field)
         # Find the mean and stdev,
         data_array.append(X)
         # Thin X to 5,000 values if needed; the maximum for the Shapiro-Wilk

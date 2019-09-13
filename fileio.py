@@ -185,6 +185,7 @@ class Experiment:
             for selection of both a column and a row.
 
             Accepts
+                param           the field to be selected
                 row             an optional row index
 
             Returns a numpy array with dtype float.
@@ -198,3 +199,15 @@ class Experiment:
                 if param in h:
                     l.append(col[row])
         return numpy.array(l, dtype=float)
+
+
+    def select_endpoint(self, param):
+        '''
+            Convenience function to select the endpoint data.
+
+            Accepts
+                param         the field to be selected
+
+            Returns a numpy array with dtype float.
+        '''
+        return self.select(param)[-1]

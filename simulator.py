@@ -9,7 +9,7 @@ Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
 Simulation module which uses simuPOP.
 Simulation parameters are set via command-line arguments.
 
-Last updated: 2-May-2019 by Derek Braun
+Last updated: 12-Sept-2019 by Derek Braun
 '''
 
 # Default Simulation Parameters from Nance and Kearsey (2004)
@@ -219,7 +219,12 @@ if __name__ == '__main__':
                                'exist, it will be created.')
     parser.add_argument('-w','--write',
                         action = 'store_true',
-                        help = 'run {:,} simulations and write to file.' \
+                        help = 'run {:,} simulations and write only if file '\
+                               'does not exist.' \
+                               ''.format(SIMULATIONS))
+    parser.add_argument('-o','--overwrite',
+                        action = 'store_true',
+                        help = 'run {:,} simulations and write or overwrite.' \
                                ''.format(SIMULATIONS))
     parser.add_argument('-p', '--pop_size',
                         action = 'store',
@@ -246,17 +251,16 @@ if __name__ == '__main__':
                                    aa_fitness          = args.fitness,
                                    aa_homogamy         = args.homogamy,
                                    deaf                = DEAF_FREQ,
-                                   generations         = GENERATIONS)
+                                   generations         = GENERATIONS,
+                                   simuPOP_version     = sim.__version__)
 
-    # This quick run obtains the headers for the data file.
-    sample_run = simuAssortativeMatingWithFitness(experiment)
     experiment.cpu = subprocess.check_output(['/usr/sbin/sysctl', "-n", \
                                      "machdep.cpu.brand_string"]).decode().strip() + \
                                      " ({} threads)".format(multiprocessing.cpu_count())
-    experiment.simuPOP_version = sim.__version__
 
-    if not args.write:
+    if not (args.write or args.overwrite):
         # just show the results from the quick sample run and exit
+        sample_run = simuAssortativeMatingWithFitness(experiment)
         print(experiment.metadata())
         numcols = sample_run['headers'][1:].index("gen") + 1
         for h in sample_run['headers'][0:numcols]:
@@ -276,15 +280,23 @@ if __name__ == '__main__':
         exit()
     else:
         if fileio.create_folder(args.path):
-            print('Creating folder...\n   {}'.format(args.path))
-        experiment.headers = sample_run['headers']
+            print('Created folder...\n   {}'.format(args.path))
         experiment.filename = os.path.join(args.path,
                                            'pop{experiment.constant_pop_size}k'\
-                                           '_fit{experiment.aa_fitness}'       \
                                            '_hom{experiment.aa_homogamy:.2}'   \
+                                           '_fit{experiment.aa_fitness}'       \
                                            '.tsv'.format(**locals()))
+        if os.path.isfile(experiment.filename):
+            if not args.overwrite:
+                print('File already exists. Use --overwrite.\n   {}'.format(experiment.filename))
+                exit()
+            else:
+                print('Overwriting file...\n   {}'.format(experiment.filename))
+        else:
+            print('Creating file...\n   {}'.format(experiment.filename))
+        sample_run = simuAssortativeMatingWithFitness(experiment)
+        experiment.headers = sample_run['headers']
         experiment.write_metadata(overwrite=True)
-        print('Creating file...\n   {}'.format(experiment.filename))
         print(experiment.metadata())
         print('Running {:,} simulations...'.format(SIMULATIONS))
 
@@ -306,7 +318,6 @@ if __name__ == '__main__':
                 return '{:.0f}m {:.0f}s'.format(m, s)
             else:
                 return '{:.1f}s'.format(s)
-
 
         mp_chunk_size = cpu_count = multiprocessing.cpu_count()
         pool = multiprocessing.Pool()

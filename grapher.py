@@ -236,7 +236,7 @@ if __name__ == '__main__':
                            '.violin_plot.{args.field}.{rcfname}.pdf'.format(**locals())
                 violins = []
                 for e in experiments:
-                    violins.append(e.select(args.field)[-1])
+                    violins.append(e.select_endpoint(args.field))
                 violin_plot (filename, violins,
                              title=args.title if args.title is not None else default_title,
                              xlabel=fileio.NAME_DICT[indep_vars[0]],
