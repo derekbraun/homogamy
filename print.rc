@@ -16,7 +16,7 @@ patch.force_edgecolor   : True    # True to always use edgecolor
 ### FONT
 # http://matplotlib.org/api/font_manager_api.html
 font.family             : sans-serif
-#font.sans-serif        : Helvetica
+font.sans-serif         : Helvetica
 font.size               : 9
 
 ### TEXT
@@ -34,7 +34,7 @@ axes.linewidth          : 1         # edge linewidth
 axes.titlesize          : 14        # fontsize of the axes title
 #axes.titlepad          : 6.0       # pad between axes and title in points
 axes.labelsize          : 12        # fontsize of the x and y labels
-axes.labelpad           : 16        # space between label and axis
+axes.labelpad           : 12        # space between label and axis
 axes.labelweight        : bold      # weight of the x and y labels
 axes.labelcolor         : black
 axes.prop_cycle         : cycler('color', ['00457c', 'e8d4a2'])

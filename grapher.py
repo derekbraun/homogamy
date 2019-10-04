@@ -10,6 +10,11 @@
     Last updated: 23-Jun-2017 by Derek Braun
 '''
 
+AXIS_LABELS = {'a'  : 'Allelic frequency',
+               'aa' : 'Deaf individuals',
+               'aa_homogamy' : 'Homogamy',
+               'aa_fitness' : 'Fitness',
+               'F' : 'F'}
 
 import os
 import sys
@@ -26,7 +31,8 @@ BUFF = '#e8d4a2'
 
 
 def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
-                ylabel=None, ylim=None, y_format='{x:.3%}', rc=None, rcfname=None):
+                ylabel=None, ylim=None, y_format='{x:.3%}', yscale='linear',
+                rc=None, rcfname=None):
     '''
         Produces a violin plot.
 
@@ -39,6 +45,7 @@ def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
             ylabel          y axis label string
             ylim            y limit
             y_format        y axis formatter string
+            yscale          linear or log scale
             rc              a rcparams dict. This takes precedence over
                             rcfname.
             rcfname         a rcparams file to load to set graph style.
@@ -46,13 +53,17 @@ def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
     with matplotlib.rc_context(rc=rc, fname=rcfname):
         plt.clf()
         fig = plt.figure()
-        if title is not None:
-            plt.title(title)
+        #if title is not None:
+        #    plt.title(title)
         ax = fig.add_subplot(111)
-        ax.set_ylim(0,numpy.amax(violins)*1.1 if ylim is None else ylim)  # necessary to have the graph start at 0,0
+        ax.set_yscale(yscale)
+        ax.set_ylim(0.001 if yscale == 'log' else 0,
+                    numpy.amax(violins)*1.1 if ylim is None else ylim)
         if xlabel is not None:
             ax.set_xlabel(xlabel)
         if ylabel is not None:
+            if yscale == 'log':
+                ylabel = 'log {}'.format(ylabel)
             if len(ylabel) < 4:
                 ax.set_ylabel(ylabel, rotation=0)
             else:
@@ -106,8 +117,8 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
         ax1 = fig.add_subplot(grid[0,:9])
         ax2 = fig.add_subplot(grid[0,9], sharey=ax1)
         ax1.locator_params(axis='x', nbins=4)
-        if title is not None:
-            plt.title(title, ha='right')
+        #if title is not None:
+        #    plt.title(title, ha='right')
         ax1.set_xlim(0,max(X))                            # necessary to have the graph start at 0,0
         ax1.set_ylim(0,numpy.amax(Ya) if ylim is None else ylim)  # necessary to have the graph start at 0,0
         if xlabel is not None:
@@ -149,6 +160,14 @@ if __name__ == '__main__':
     parser.add_argument('filenames',
                         nargs = '+',
                         help = 'filename(s) for data file')
+    parser.add_argument('-o', '--output_file',
+                        action='store',
+                        default = None,
+                        help = 'the output filename ')
+    parser.add_argument('-r', '--rcfname',
+                        action='store',
+                        default = 'print.rc',
+                        help = 'the rcf file to use. Must exist in directory')
     parser.add_argument('-f', '--field',
                         action='store',
                         help = 'the variable to compare among populations; ' \
@@ -165,6 +184,10 @@ if __name__ == '__main__':
     parser.add_argument('--y_format',
                         action='store',
                         default = '{x:.3%}',
+                        help = 'manual y axis formatter string')
+    parser.add_argument('--yscale',
+                        action='store',
+                        default = 'linear',
                         help = 'manual y axis formatter string')
     args=parser.parse_args()
     if len(sys.argv) == 1:
@@ -184,7 +207,7 @@ if __name__ == '__main__':
 
     # if only one file, do a contour plot
     if len(args.filenames) == 1:
-        print('Writing contour plot...')
+        print('Writing contour plot using {}'.format(args.rcfname))
         e = experiments[0]
         default_title='pop size={:,}   fitness={:.1f}   homogamy={:.1f}'\
               ''.format(int(e.constant_pop_size),
@@ -192,20 +215,22 @@ if __name__ == '__main__':
                         float(e.aa_homogamy))
         rc = {'axes.titlesize': 10}
         X = e.select('gen',0)
-        for rcfname in ['print.rc']:
+        if args.output_file:
+            filename = args.output_file
+        else:
             filename = os.path.splitext(args.filenames[0])[0] + \
-                       '.contour_plot.{args.field}.{rcfname}.pdf'.format(**locals())
-            Ya = e.select(args.field)
-            contour_plot(filename, X, Ya,
-                         title=args.title if args.title is not None else default_title,
-                         xlabel='Generation',
-                         ylabel=fileio.NAME_DICT[args.field],
-                         ylim=args.ylim,
-                         y_format=args.y_format,
-                         rc=rc,
-                         rcfname=rcfname)
-            print('   {}'.format(filename))
-        print("Done.")
+                   '.contour_plot.{args.field}.{args.rcfname}.pdf'.format(**locals())
+        Ya = e.select(args.field)
+        contour_plot(filename, X, Ya,
+                     title=args.title if args.title is not None else default_title,
+                     xlabel='Generation',
+                     ylabel=AXIS_LABELS[args.field],
+                     ylim=args.ylim,
+                     y_format=args.y_format,
+                     rc=rc,
+                     rcfname=args.rcfname)
+        print('   {}'.format(filename))
+        print("Done.\n")
 
     # if more than one file, do a violin plot
     else:
@@ -229,21 +254,24 @@ if __name__ == '__main__':
             categories = []
             for e in experiments:
                 categories.append(getattr(e, indep_vars[0]))
-            print('Writing violin plot...')
+            print('Writing violin plot using {}'.format(args.rcfname))
             default_title=''
-            for rcfname in ['print.rc']:
+            if args.output_file:
+                filename = args.output_file
+            else:
                 filename = os.path.splitext(args.filenames[0])[0] + \
-                           '.violin_plot.{args.field}.{rcfname}.pdf'.format(**locals())
-                violins = []
-                for e in experiments:
-                    violins.append(e.select_endpoint(args.field))
-                violin_plot (filename, violins,
-                             title=args.title if args.title is not None else default_title,
-                             xlabel=fileio.NAME_DICT[indep_vars[0]],
-                             categories=categories,
-                             ylabel=fileio.NAME_DICT[args.field],
-                             ylim=args.ylim,
-                             y_format=args.y_format,
-                             rcfname=rcfname)
-                print('   {}'.format(filename))
-        print("Done.")
+                    '.violin_plot.{args.field}.{args.rcfname}.pdf'.format(**locals())
+            violins = []
+            for e in experiments:
+                violins.append(e.select_endpoint(args.field))
+            violin_plot (filename, violins,
+                         title=args.title if args.title is not None else default_title,
+                         xlabel=AXIS_LABELS[indep_vars[0]],
+                         categories=categories,
+                         ylabel=AXIS_LABELS[args.field],
+                         ylim=args.ylim,
+                         y_format=args.y_format,
+                         yscale=args.yscale,
+                         rcfname=args.rcfname)
+            print('   {}'.format(filename))
+        print("Done.\n")

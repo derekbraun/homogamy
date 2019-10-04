@@ -60,16 +60,12 @@ if __name__ == '__main__':
     print('{:30}   {:^8}   {:^8}  {:^21}'.format('filename','(median)','(median)','95% CI'))
     for e in experiments:
         # select first and last set of values
-        Xo = e.select(args.field)[0]
         X = e.select_endpoint(args.field)
-        # Find the mean and stdev
-        start_median = numpy.median(Xo)
         end_median = numpy.median(X)
         X.sort()
         ci = '({:0.6f} - {:0.6f})'.format(X[int(0.025*len(X))],
                                       X[int(0.975*len(X))])
-        print('{:30}   {:0.6f}   {:0.6f}  {:^21}'.format(e.filename, start_median, \
-                                             end_median, ci))
+        print('{:30}   {:0.6f}  {:^21}'.format(e.filename, end_median, ci))
     print()
     print('** Shapiro-Wilk test of normality for "{}" **'.format(args.field, \
                                                                  filename))
