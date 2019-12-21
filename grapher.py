@@ -3,11 +3,10 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-    Samir Jain, Eric Epstein, Trevor Klemp, Maggie Gray, Selman Jawed, Derek
-    Braun* (*derek.braun@gallaudet.edu)
+*Derek Braun, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
+(*derek.braun@gallaudet.edu)
 
-    Produces graphs for the data files created by simulator.py.
-    Last updated: 23-Jun-2017 by Derek Braun
+Produces graphs for the data files created by simulator.py.
 '''
 
 AXIS_LABELS = {'a'  : 'Allelic frequency',

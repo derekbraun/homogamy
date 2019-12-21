@@ -1,25 +1,7 @@
-homogamy
-
-Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
+*Derek Braun, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
 (*derek.braun@gallaudet.edu)
 
 To clone this project: git clone https://github.com/derekbraun/homogamy.git
-
-NANCE AND KEARSEY PARAMETERS:
-
-Nance and Kearsey (2004)
-First 5 generations: fitness 0
-Homogamy increases to 90% by gen 5
-20 more generations (400 years) representing 1800-2200
-Population size fixed at 200,000
-
-TO-DO LIST
-
-1.  Fix grapher.py to:
-    a. Accept field command line parameter
-    b. Terminate graph at a boxplot
-    c. Put two lines on the same graph (e.g. aa and deaf)
-
 
 MODULES
 
@@ -33,10 +15,10 @@ simulator.py    Simulation module which uses simuPOP.
                 experiment class.
 
                 simulator.py --help to get parameters
-                simulator.py --sample_run to perform a single run
+                simulator.py to perform a single run
 
 
-grapher.py      Produces graphs for the data files created by Simulator.py.
+grapher.py      Produces graphs for the data files created by simulator.py.
 
                 grapher.py --help to get parameters
 
@@ -45,6 +27,14 @@ stats.py        Performs statistical analyses comparing data files created by
                 simulator.py.
 
                 stats.py --help to get parameters.
+
+my_math.py      Calculates ending values using math equations from Crow & Felsenstein (1968).
+                Used to validate/compare with simulation results.
+
+
+simulator.bash  Runs the simulations for this publication (takes forever!).
+
+grapher.bash    Produces graphs for this publication.
 
 
 

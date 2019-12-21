@@ -3,13 +3,11 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
+*Derek Braun, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
 (*derek.braun@gallaudet.edu)
 
 Simulation module which uses simuPOP.
 Simulation parameters are set via command-line arguments.
-
-Last updated: 12-Sept-2019 by Derek Braun
 '''
 
 # Default Simulation Parameters from Nance and Kearsey (2004)
