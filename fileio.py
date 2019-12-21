@@ -3,7 +3,7 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-*Derek Braun, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
+*Derek C. Braun, Brian H. Greenwald, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
 (*derek.braun@gallaudet.edu)
 
 Contains routines to standardize file I/O and to select columns and

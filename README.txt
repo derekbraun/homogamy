@@ -1,4 +1,4 @@
-*Derek Braun, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
+*Derek C. Braun, Brian H. Greenwald, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
 (*derek.braun@gallaudet.edu)
 
 To clone this project: git clone https://github.com/derekbraun/homogamy.git
@@ -35,7 +35,6 @@ my_math.py      Calculates ending values using math equations from Crow & Felsen
 simulator.bash  Runs the simulations for this publication (takes forever!).
 
 grapher.bash    Produces graphs for this publication.
-
 
 
 

@@ -3,12 +3,10 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
+*Derek C. Braun, Brian H. Greenwald, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
+(*derek.braun@gallaudet.edu)*
 (*derek.braun@gallaudet.edu)
-
 Performs statistical analyses comparing data files created by simulator.py.
-
-Last updated: 2-May-2019 by Derek Braun
 '''
 
 
