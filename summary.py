@@ -3,13 +3,11 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
+*Derek Braun, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
 (*derek.braun@gallaudet.edu)
 
 Display a X-Y table showing final median values from data files created by
 simulator.py.
-
-Last updated: 15-May-2019 by Derek Braun
 '''
 
 import sys

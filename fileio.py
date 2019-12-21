@@ -3,14 +3,12 @@
 # We generally follow PEP 8: http://legacy.python.org/dev/peps/pep-0008/
 
 '''
-    Samir Jain, Eric Epstein, Maggie Gray, Derek Braun*
-    (*derek.braun@gallaudet.edu)
+*Derek Braun, Samir Jain, Eric Epstein, Brienna Herold, Maggie Gray
+(*derek.braun@gallaudet.edu)
 
-    Contains routines to standardize file I/O and to select columns and
-    keywords from the resulting data files. Greatly simplifies coding
-    elsewhere.
-
-    Last updated: 23-Jun-2017 by Derek Braun
+Contains routines to standardize file I/O and to select columns and
+keywords from the resulting data files. Greatly simplifies coding
+elsewhere.
 '''
 
 
@@ -30,12 +28,6 @@ INDEP_VARS = ['constant_pop_size',
             'aa_fitness',
             'deaf',
             'aa_homogamy']
-
-NAME_DICT = {'a'  : 'Allelic frequency',
-             'aa' : 'Deaf individuals',
-             'aa_homogamy' : 'Homogamy',
-             'aa_fitness' : 'Fitness',
-             'F' : 'F'}
 
 import os
 import time

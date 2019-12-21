@@ -31,7 +31,7 @@ BUFF = '#e8d4a2'
 
 
 def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
-                ylabel=None, ylim=None, y_format='{x:.3%}', yscale='linear',
+                ylabel=None, ylim=None, yformat='{x:.3%}', yscale='linear',
                 rc=None, rcfname=None):
     '''
         Produces a violin plot.
@@ -44,7 +44,7 @@ def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
             categories      x axis categories (strings)
             ylabel          y axis label string
             ylim            y limit
-            y_format        y axis formatter string
+            yformat        y axis formatter string
             yscale          linear or log scale
             rc              a rcparams dict. This takes precedence over
                             rcfname.
@@ -74,7 +74,7 @@ def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
         inds = numpy.arange(1, len(Y_50) + 1)
         ax.vlines(inds, Y_25, Y_75, linestyle='-', lw=5)
         ax.vlines(inds, Y_2, Y_98, linestyle='-', lw=1)
-        ax.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter(y_format))
+        ax.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter(yformat))
 
         if categories is not None:
             ax.get_xaxis().set_tick_params(direction='out')
@@ -82,12 +82,12 @@ def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
             ax.set_xticks(numpy.arange(1, len(categories) + 1))
             ax.set_xticklabels(categories)
             ax.set_xlim(0.25, len(categories) + 0.75)
-        plt.savefig(filename, transparent=True)
+        plt.savefig(filename, transparent=True, dpi=600)
         plt.close()
 
 
 def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
-                 ylim=None, y_format='{x:.3%}', rc=None, rcfname=None):
+                 ylim=None, yformat='{x:.3%}', rc=None, rcfname=None):
     '''
         Produces a contour plot that is like a continuous boxplot.
         The 25% and 75% quartiles, median, 2% and 98% credible intervals are all
@@ -102,7 +102,7 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             xlabel          x axis label string
             ylabel          y axis label string
             ylim            y limit
-            y_format        y axis formatter string
+            yformat        y axis formatter string
             rc              a rcparams dict. This takes precedence over
                             rcfname.
             rcfname         a rcparams file to load to set graph style.
@@ -132,7 +132,7 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
         ax1.fill_between(X, Y_75, Y_25, color=BUFF, alpha=0.5)
         ax1.plot(X, Y_98, color=BLUE, lw=0.5)
         ax1.plot(X, Y_75, color=BLUE)
-        ax1.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter(y_format))
+        ax1.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter(yformat))
         ax1.plot(X, Y_50, color=BLUE, lw=1.5)
         ax1.plot(X, Y_25, color=BLUE)
         ax1.plot(X, Y_2, color=BLUE, lw=0.5)
@@ -141,14 +141,14 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
                       showextrema = False)
         ax2.vlines([1], Y_25[-1], Y_75[-1], linestyle='-', lw=4)
         ax2.vlines([1], Y_2[-1], Y_98[-1], linestyle='-', lw=1)
-        ax2.text(1.2, Y_2[-1], y_format.format(x=Y_2[-1]),
+        ax2.text(1.2, Y_2[-1], yformat.format(x=Y_2[-1]),
                         va='center', ha='left')
-        ax2.text(1.3, Y_50[-1], y_format.format(x=Y_50[-1]),
+        ax2.text(1.3, Y_50[-1], yformat.format(x=Y_50[-1]),
                 va='center', ha='left')
-        ax2.text(1.2, Y_98[-1], y_format.format(x=Y_98[-1]),
+        ax2.text(1.2, Y_98[-1], yformat.format(x=Y_98[-1]),
                 va='center', ha='left')
         ax2.axis('off')
-        plt.savefig(filename, transparent=True)
+        plt.savefig(filename, transparent=True, dpi=600)
         plt.close()
 
 #
@@ -176,12 +176,16 @@ if __name__ == '__main__':
                         action='store',
                         default = None,
                         help = 'user-specified title for plot')
+    parser.add_argument('--ylabel',
+                        action='store',
+                        default = None,
+                        help = 'user-specified axis label')
     parser.add_argument('--ylim',
                         action='store',
                         type = float,
                         default = None,
                         help = 'manual y limit')
-    parser.add_argument('--y_format',
+    parser.add_argument('--yformat',
                         action='store',
                         default = '{x:.3%}',
                         help = 'manual y axis formatter string')
@@ -224,9 +228,9 @@ if __name__ == '__main__':
         contour_plot(filename, X, Ya,
                      title=args.title if args.title is not None else default_title,
                      xlabel='Generation',
-                     ylabel=AXIS_LABELS[args.field],
+                     ylabel=args.ylabel if args.ylabel is not None else AXIS_LABELS[args.field],
                      ylim=args.ylim,
-                     y_format=args.y_format,
+                     yformat=args.yformat,
                      rc=rc,
                      rcfname=args.rcfname)
         print('   {}'.format(filename))
@@ -268,9 +272,9 @@ if __name__ == '__main__':
                          title=args.title if args.title is not None else default_title,
                          xlabel=AXIS_LABELS[indep_vars[0]],
                          categories=categories,
-                         ylabel=AXIS_LABELS[args.field],
+                         ylabel=args.ylabel if args.ylabel is not None else AXIS_LABELS[args.field],
                          ylim=args.ylim,
-                         y_format=args.y_format,
+                         yformat=args.yformat,
                          yscale=args.yscale,
                          rcfname=args.rcfname)
             print('   {}'.format(filename))
