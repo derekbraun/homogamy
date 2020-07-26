@@ -11,8 +11,8 @@ Produces graphs for the data files created by simulator.py.
 
 AXIS_LABELS = {'a'  : 'Allelic frequency',
                'aa' : 'Deaf individuals',
-               'aa_homogamy' : 'Homogamy',
-               'aa_fitness' : 'Fitness',
+               'aa_homogamy' : 'Degree of Assortative Mating',
+               'aa_fitness' : 'Genetic Fitness (Relative Fertility)',
                'F' : 'F'}
 
 import os
@@ -27,6 +27,33 @@ import fileio
 #see: http://matplotlib.sourceforge.net/users/customizing.html
 BLUE = '#00457c'
 BUFF = '#e8d4a2'
+
+def mimic_transparency(color, alpha, bgcolor = "#FFFFFF"):
+    '''
+        Mimics the effect of transparency of a given color against a given
+        background (default is white).
+
+        Used because eps output files do not natively support transparency.
+
+        Accepts:
+            color        the color to be modified, as a matplotlib rgb string
+            alpha        the transparency
+
+        Returns an rgb string that can be used in matplotlib
+    '''
+    source_r = int(color[1:3], 16) / 255.
+    source_g = int(color[3:5], 16) / 255.
+    source_b = int(color[5:7], 16) / 255.
+
+    bg_r = int(bgcolor[1:3], 16) / 255.
+    bg_g = int(bgcolor[3:5], 16) / 255.
+    bg_b = int(bgcolor[5:7], 16) / 255.
+
+    r = hex(round((((1 - alpha) * bg_r) + (alpha * source_r))*255))[2:]
+    g = hex(round((((1 - alpha) * bg_g) + (alpha * source_g))*255))[2:]
+    b = hex(round((((1 - alpha) * bg_b) + (alpha * source_b))*255))[2:]
+
+    return '#' + r + g + b
 
 
 def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
@@ -43,7 +70,7 @@ def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
             categories      x axis categories (strings)
             ylabel          y axis label string
             ylim            y limit
-            yformat        y axis formatter string
+            yformat         y axis formatter string
             yscale          linear or log scale
             rc              a rcparams dict. This takes precedence over
                             rcfname.
@@ -67,8 +94,15 @@ def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
                 ax.set_ylabel(ylabel, rotation=0)
             else:
                 ax.set_ylabel(ylabel)
-        ax.violinplot(violins, showmeans = False, showmedians = True,
+        parts = ax.violinplot(violins, showmeans = False, showmedians = True,
                       showextrema = False)
+        # must remove transparency for EPS file to work correctly
+        for pc in parts['bodies']:
+            pc.set_facecolor(mimic_transparency(BLUE, 0.5))
+            pc.set_edgecolor('black')
+            pc.set_alpha(1)
+
+
         Y_98, Y_75, Y_50, Y_25, Y_2 = numpy.percentile(violins, [98, 75, 50, 25, 2], axis=1)
         inds = numpy.arange(1, len(Y_50) + 1)
         ax.vlines(inds, Y_25, Y_75, linestyle='-', lw=5)
@@ -81,7 +115,7 @@ def violin_plot(filename, violins, title=None, xlabel=None, categories=None,
             ax.set_xticks(numpy.arange(1, len(categories) + 1))
             ax.set_xticklabels(categories)
             ax.set_xlim(0.25, len(categories) + 0.75)
-        plt.savefig(filename, transparent=True, dpi=600)
+        plt.savefig(filename, transparent=False, dpi=600)
         plt.close()
 
 
@@ -128,7 +162,7 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
             else:
                 ax1.set_ylabel(ylabel)
         #shade in between the 25% and 75% quartiles, just like a boxplot
-        ax1.fill_between(X, Y_75, Y_25, color=BUFF, alpha=0.5)
+        ax1.fill_between(X, Y_75, Y_25, color=mimic_transparency(BUFF, 0.5))
         ax1.plot(X, Y_98, color=BLUE, lw=0.5)
         ax1.plot(X, Y_75, color=BLUE)
         ax1.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter(yformat))
@@ -136,8 +170,14 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
         ax1.plot(X, Y_25, color=BLUE)
         ax1.plot(X, Y_2, color=BLUE, lw=0.5)
 
-        ax2.violinplot(Ya[-1], showmeans = False, showmedians = True,
+        parts = ax2.violinplot(Ya[-1], showmeans = False, showmedians = True,
                       showextrema = False)
+        # must remove transparency for EPS file to work correctly
+        for pc in parts['bodies']:
+            pc.set_facecolor(mimic_transparency(BLUE, 0.5))
+            pc.set_edgecolor('black')
+            pc.set_alpha(1)
+
         ax2.vlines([1], Y_25[-1], Y_75[-1], linestyle='-', lw=4)
         ax2.vlines([1], Y_2[-1], Y_98[-1], linestyle='-', lw=1)
         ax2.text(1.2, Y_2[-1], yformat.format(x=Y_2[-1]),
@@ -147,13 +187,14 @@ def contour_plot(filename, X, Ya, title=None, xlabel=None, ylabel=None,
         ax2.text(1.2, Y_98[-1], yformat.format(x=Y_98[-1]),
                 va='center', ha='left')
         ax2.axis('off')
-        plt.savefig(filename, transparent=True, dpi=600)
+        plt.savefig(filename, transparent=False, dpi=600)
         plt.close()
 
 #
 #   MAIN ROUTINE
 #
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser(description=__doc__,
                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('filenames',
