@@ -41,17 +41,10 @@ def mimic_transparency(color, alpha, bgcolor = "#FFFFFF"):
 
         Returns an rgb string that can be used in matplotlib
     '''
-    source_r = int(color[1:3], 16) / 255.
-    source_g = int(color[3:5], 16) / 255.
-    source_b = int(color[5:7], 16) / 255.
-
-    bg_r = int(bgcolor[1:3], 16) / 255.
-    bg_g = int(bgcolor[3:5], 16) / 255.
-    bg_b = int(bgcolor[5:7], 16) / 255.
-
-    r = hex(round((((1 - alpha) * bg_r) + (alpha * source_r))*255))[2:]
-    g = hex(round((((1 - alpha) * bg_g) + (alpha * source_g))*255))[2:]
-    b = hex(round((((1 - alpha) * bg_b) + (alpha * source_b))*255))[2:]
+    bg = [int(c, 16)/255. for c in [bgcolor[1:3], bgcolor[3:5], bgcolor[5:7]]]
+    source = [int(c, 16)/255. for c in [color[1:3], color[3:5], color[5:7]]]
+    r, g, b = [hex(round((((1 - alpha) * bg_c) + (alpha * source_c))*255))[2:] \
+                for bg_c, source_c in zip(bg, source)]
 
     return '#' + r + g + b
 
